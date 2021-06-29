@@ -40,8 +40,8 @@ void setup() {
  }
  
  gaugeScales[0].set_scale(-15184);   //calibrated with the load cell on the real truss -> OUTPUTS force in newtons
- gaugeScales[1].set_scale(-3231);         //calibrated with truss member 1  -> outputs strain in micro-strain
-
+ //gaugeScales[1].set_scale(-3231);         //calibrated with truss member 1  -> outputs strain in micro-strain
+  gaugeScales[1].set_scale(-3900); 
  tareAllScales();
 
   //I2C communication with CONTROLLER arduino
@@ -52,7 +52,15 @@ void setup() {
 }
 
 void loop() {
-
+//  for(int i=0; i<numGauges;i++){
+//    if(gaugeScales[i].is_ready()){
+//      Serial.print("Gauge ");
+//      Serial.print(i);
+//      Serial.print(": \t");
+//      Serial.println(gaugeScales[i].get_units(10));
+//    }
+//  }
+  
 }
 
 void requestHandler(){
@@ -68,9 +76,11 @@ void requestHandler(){
       
     } else{
       
-      d.number = 0.0;
+      d.number = 1.1;
       data[i] = d;
     }
+
+    delay(100);
   }
 
   //write scale data over I2C

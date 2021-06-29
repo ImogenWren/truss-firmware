@@ -59,7 +59,7 @@ void loop() {
     printDataToSerial();
     
     if(digitalRead(button) == HIGH){
-      Serial.println("TARE");
+      Serial.println("{\"tare\":true}");
       Wire.beginTransmission(8);
       Wire.write('t');
       Wire.endTransmission();
@@ -71,10 +71,10 @@ void loop() {
 }
 
 void printDataToSerial(){
-  Serial.print("{\"gauge_1\":");
-  Serial.print(data[0].number, 0);
-  Serial.print(",\"gauge_2\":");
-  Serial.print(data[1].number, 0);
+  Serial.print("{\"load_cell\":");
+  Serial.print(data[0].number);
+  Serial.print(",\"gauge_1\":");
+  Serial.print(data[1].number);
   Serial.println("}");
  
 
