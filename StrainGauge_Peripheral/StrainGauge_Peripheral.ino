@@ -10,15 +10,28 @@
 #include "HX711.h"
 #include <Wire.h>
 
-const int numGauges = 2;
-const int GAUGE_A_DT = 3; //DATA pins
-const int GAUGE_B_DT = 4;
+const int numGauges = 7;
+const int GAUGE_0_DT = 3; //DATA pins
+const int GAUGE_1_DT = 4;
+const int GAUGE_2_DT = 5;
+const int GAUGE_3_DT = 6;
+const int GAUGE_4_DT = 7;
+const int GAUGE_5_DT = 8;
+const int GAUGE_6_DT = 9;
+
+const int data_pins[numGauges] = {GAUGE_0_DT, GAUGE_1_DT, GAUGE_2_DT, GAUGE_3_DT, GAUGE_4_DT, GAUGE_5_DT, GAUGE_6_DT};
+
 const int SCK_PIN = 2;  //Common CLOCK pin
 
 HX711 scale_0;
 HX711 scale_1;
+HX711 scale_2;
+HX711 scale_3;
+HX711 scale_4;
+HX711 scale_5;
+HX711 scale_6;
 
-HX711 gaugeScales[numGauges] = {scale_0, scale_1};
+HX711 gaugeScales[numGauges] = {scale_0, scale_1, scale_2, scale_3, scale_4, scale_5, scale_6};
 
 typedef union
 {
@@ -31,17 +44,21 @@ FLOATUNION data[numGauges];
 
 
 void setup() {
- 
- gaugeScales[0].begin(GAUGE_A_DT, SCK_PIN);
- gaugeScales[1].begin(GAUGE_B_DT, SCK_PIN);
 
- for(int i=0;i<numGauges;i++){
-  gaugeScales[i].set_gain(128);
- }
+ initialiseScales();
+
+ setGain(128);
  
  gaugeScales[0].set_scale(-15184);   //calibrated with the load cell on the real truss -> OUTPUTS force in newtons
  //gaugeScales[1].set_scale(-3231);         //calibrated with truss member 1  -> outputs strain in micro-strain
-  gaugeScales[1].set_scale(-3900); 
+  gaugeScales[1].set_scale(-3900);          //member 1
+  gaugeScales[2].set_scale(-3900);          //member 2
+  gaugeScales[3].set_scale(-3900);          //member 3
+  gaugeScales[4].set_scale(-3900);          //member 4
+  gaugeScales[5].set_scale(-3900);          //member 5
+  gaugeScales[6].set_scale(-3900);          //member 6
+
+  
  tareAllScales();
 
   //I2C communication with CONTROLLER arduino
@@ -64,7 +81,7 @@ void loop() {
 }
 
 void requestHandler(){
-  //get scale data
+  
   for(int i=0; i<numGauges;i++){
     
     FLOATUNION d;
@@ -76,14 +93,13 @@ void requestHandler(){
       
     } else{
       
-      d.number = 1.1;
+      d.number = 0.0;
       data[i] = d;
     }
 
     delay(100);
   }
 
-  //write scale data over I2C
   
   for(int i=0;i<numGauges;i++){
     
@@ -97,6 +113,18 @@ void receiveHandler(int numBytes){
   char c = Wire.read();
   if(c == 't'){
     tareAllScales();
+  }
+}
+
+void initialiseScales(){
+  for(int i=0;i<numGauges;i++){
+    gaugeScales[i].begin(data_pins[i], SCK_PIN);
+  }
+}
+
+void setGain(int gain){
+  for(int i=0;i<numGauges;i++){
+    gaugeScales[i].set_gain(gain);
   }
 }
 

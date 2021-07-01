@@ -12,7 +12,7 @@
 unsigned long timeInterval = 2000;
 unsigned long currentTime = millis();
 
-const int numGauges = 2;
+const int numGauges = 7;
 
 typedef union
 {
@@ -20,10 +20,15 @@ typedef union
   uint8_t bytes[4];
 } FLOATUNION;
 
+FLOATUNION data_0;
 FLOATUNION data_1;
 FLOATUNION data_2;
+FLOATUNION data_3;
+FLOATUNION data_4;
+FLOATUNION data_5;
+FLOATUNION data_6;
 
-FLOATUNION data[numGauges] = {data_1, data_2};
+FLOATUNION data[numGauges] = {data_0, data_1, data_2, data_3, data_4, data_5, data_6};
 
 
 void setup() {
@@ -63,6 +68,7 @@ void loop() {
       Wire.beginTransmission(8);
       Wire.write('t');
       Wire.endTransmission();
+      delay(100);
     }
     
     currentTime = millis();
@@ -73,10 +79,14 @@ void loop() {
 void printDataToSerial(){
   Serial.print("{\"load_cell\":");
   Serial.print(data[0].number);
-  Serial.print(",\"gauge_1\":");
-  Serial.print(data[1].number);
+  
+  for(int i=1;i<numGauges;i++){
+    Serial.print(",\"gauge_");
+    Serial.print(i);
+    Serial.print("\":");
+    Serial.print(data[i].number);
+  }
+  
   Serial.println("}");
  
-
-  
 }
