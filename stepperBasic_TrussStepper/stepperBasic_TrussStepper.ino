@@ -20,6 +20,8 @@ int microsecond_delay;
 int delays[4] = {1000, 2000, 6000, 10000};
 int speed_index = 0;
 
+int direction = -1;
+
 TrussStepper stepper = TrussStepper(200, SDIR, SPUL);
 
 void setup() {
@@ -40,10 +42,10 @@ void setup() {
 
 void loop() {
   if(digitalRead(BUP) == HIGH){
-    stepper.step(1);
+    stepper.step(1*direction);
   } 
   else if(digitalRead(BDOWN) == HIGH){
-    stepper.step(-1);
+    stepper.step(-1*direction);
   } 
   else if(digitalRead(BSPE) == HIGH){
     speed_index += 1;

@@ -1,10 +1,12 @@
-{"set": "pos", "to": value} 
+{"set": "position", "to": value} 
 
 {"set": "speed", "to": value} 
 
+{"set": "mode", "to": "read"} 
+
 {"set": "mode", "to": "move"} 
 
-{"set": "mode", "to":"stop"} 
+{"set": "mode", "to":"standby"} 
 
 {"set": "mode", "to":"zero"}
 

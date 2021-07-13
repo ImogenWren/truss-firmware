@@ -42,6 +42,9 @@ const int scale_factor_6 = scale_factor_1*0.924;
 
 HX711 gaugeScales[numGauges] = {scale_0, scale_1, scale_2, scale_3, scale_4, scale_5, scale_6};
 
+const unsigned long reading_interval = 2000;
+unsigned long current_time = millis();
+
 typedef union
 {
   float number;
@@ -74,61 +77,51 @@ void setup() {
  Wire.onRequest(requestHandler);
  Wire.onReceive(receiveHandler);
 
-// Serial.begin(57600);
-// while(!Serial);
+ Serial.begin(57600);
+ while(!Serial);
   
 }
 
 void loop() {
+  if(millis() >= current_time + reading_interval)
+  {
+    for(int i=0; i<numGauges;i++){
+    
+      FLOATUNION d;
+      
+      if(gaugeScales[i].is_ready()){
+        
+        d.number = gaugeScales[i].get_units(2);
+        data[i] = d;
+        Serial.print("gauge ");
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(d.number);
+        
+      } else{
+        
+        d.number = 999.999;
+        data[i] = d;
+      }
   
-//  for(int i=0; i<numGauges;i++){
-//    if(gaugeScales[i].is_ready()){
-//      Serial.print("Gauge ");
-//      Serial.print(i);
-//      Serial.print(": \t");
-//      Serial.println(gaugeScales[i].get_units(10));
-//    } else{
-//      Serial.println("Not ready");
-//    }
-//
-//    delay(100);    
-//  }
+      delay(100);
+    }
 
-//  if(scale_0.is_ready()){
-//    Serial.print("Gauge 0: ");
-//    Serial.println(scale_0.get_units(10));
-//  } else{
-//    Serial.println("Not ready");
-//  }
-//  
-//  Serial.println("Waiting..");
- // delay(1000);
+    current_time = millis();
+  }
+  
+  delay(100);
+  
 }
 
 void requestHandler(){
   
-  for(int i=0; i<numGauges;i++){
-    
-    FLOATUNION d;
-    
-    if(gaugeScales[i].is_ready()){
-      
-      d.number = gaugeScales[i].get_units(10);
-      data[i] = d;
-      
-    } else{
-      
-      d.number = 999.999;
-      data[i] = d;
-    }
-
-    delay(100);
-  }
-
-  
   for(int i=0;i<numGauges;i++){
     
-    Wire.write(data[i].bytes, 4);
+    Wire.write(data[i].bytes[0]);
+    Wire.write(data[i].bytes[1]);
+    Wire.write(data[i].bytes[2]);
+    Wire.write(data[i].bytes[3]);
   
   }
   
