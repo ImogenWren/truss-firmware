@@ -1,1 +1,11 @@
-{"set":"pos:, "to":2}
+{"set": "pos", "to": value} 
+
+{"set": "speed", "to": value} 
+
+{"set": "mode", "to": "move"} 
+
+{"set": "mode", "to":"stop"} 
+
+{"set": "mode", "to":"zero"}
+
+{"set": "mode", "to":"tare"} 

@@ -118,7 +118,7 @@ void requestHandler(){
       
     } else{
       
-      d.number = 1.0;
+      d.number = 999.999;
       data[i] = d;
     }
 

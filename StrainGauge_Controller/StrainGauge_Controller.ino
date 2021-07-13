@@ -1,7 +1,7 @@
 //Controller Arduino for Strain Gauge measurements
 
 //Communicates through I2C with PERIPHERAL Arduino to receive strain gauge measurements.
-
+#include "TrussStepper.h"
 #include "ArduinoJson-v6.9.1.h"
 #include <Wire.h>
 
@@ -11,7 +11,11 @@ StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
 //STEPPER VARIABLES
+#define SDIR 2
+#define SPUL 5
 const int stepperStepsPerRev = 200;
+const int stepperStepPeriod = 1000; //microseconds
+TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL);
 int currentPos = 0;     //the position of the stepper in terms of number of steps
 int moveToPos = 0;      //the position the stepper should move to in terms of steps.
 const int positionLimit = 4*stepperStepsPerRev;
@@ -165,13 +169,13 @@ void Sm_State_Move(void){
     if(currentPos > moveToPos)
     {
       //step anticlockwise with stepper class
-      //step(-1);
+      stepper.step(-1);
       currentPos -= 1;
     } 
     else if(currentPos < moveToPos)
     {
       //step clockwise with stepper class
-      //step(1);
+      stepper.step(1);
       currentPos += 1;  
     }
 
@@ -200,7 +204,7 @@ void Sm_State_Tare(void){
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('t');
   Wire.endTransmission();
-  delay(100);
+  delay(1000);
   
   SmState = STATE_READ;
   
@@ -229,6 +233,8 @@ void setup() {
   //Serial communication for sending data to RPi -> Server
   Serial.begin(57600);
   while(!Serial);
+
+  stepper.setDelay(stepperStepPeriod);
 
  }
 
