@@ -37,6 +37,7 @@ unsigned long currentTime = millis();
 //GAUGE VARIABLES
 const int PERIPHERAL_ADDRESS = 8;
 const int numGauges = 7;
+int next_index = 0;       //the index of the next gauge to read data from
 
 typedef union
 {
@@ -127,27 +128,31 @@ void Sm_State_Standby(void){
 //TRANSITION: STATE_READ -> STATE_READ
 void Sm_State_Read(void){
 
-  if(millis() >= currentTime + timeInterval){
+  if(millis() >= currentTime + timeInterval)
+  {
 
-    Wire.requestFrom(PERIPHERAL_ADDRESS, numGauges*4);   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
-
-    int i = 0;
-    int j = 0;
-    while(Wire.available()){
-    //for(int i=0; i<numGauges; i++){
-      //for(int j=0; j<4;j++){
-        data[i].bytes[j] = Wire.read();
-        j = j+1;
-  
-        if(j == 4){
-          i = i + 1;
-          j = 0;
-        }
+    if(Wire.requestFrom(PERIPHERAL_ADDRESS, 4))   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
+    {     
+      
+      for(byte i=0; i<4; i++)
+      {
+          data[next_index].bytes[i] = Wire.read();
       }
-
-      printToSerial();
-      currentTime = millis();
+      
+      next_index = (next_index + 1) % numGauges;
+        
+    } else 
+    {
+      Serial.print("{\"error\":\"gauge\":");
+      Serial.print(next_index);
+      Serial.println("}");
     }
+
+
+    printToSerial();
+    currentTime = millis();
+
+  }
   
   SmState = STATE_READ;
 }
@@ -261,13 +266,16 @@ void setup() {
   //I2C communication with peripheral arduino
   Wire.begin();
 
-  //Serial communication for sending data to RPi -> Server
+  //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
   while(!Serial);
 
   stepper.setDelay(stepperStepPeriod);
 
-
+  //on startup make sure peripheral device has set the gauge index to 0.
+  Wire.beginTransmission(PERIPHERAL_ADDRESS);
+  Wire.write('0');
+  Wire.endTransmission();
  }
 
 void loop() {
