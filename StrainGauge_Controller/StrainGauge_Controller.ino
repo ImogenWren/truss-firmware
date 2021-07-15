@@ -31,7 +31,7 @@ volatile int upperSteps = 0;
 volatile int lowerSteps = 0;
 
 //TIMING FOR GAUGE READING
-unsigned long timeInterval = 5000;    //request gauge readings on this time interval
+unsigned long timeInterval = 500;    //request gauge readings on this time interval
 unsigned long currentTime = millis();
 
 //GAUGE VARIABLES
@@ -127,7 +127,9 @@ void Sm_State_Standby(void){
 
 //TRANSITION: STATE_READ -> STATE_READ
 void Sm_State_Read(void){
-
+  
+   bool error = false;
+  
   if(millis() >= currentTime + timeInterval)
   {
 
@@ -143,18 +145,36 @@ void Sm_State_Read(void){
         
     } else 
     {
+      error = true;
       Serial.print("{\"error\":\"gauge\":");
       Serial.print(next_index);
       Serial.println("}");
+      //if there is an error in a gauge reading then reset to 0 index on controller and peripheral.
+      Wire.beginTransmission(PERIPHERAL_ADDRESS);
+      Wire.write('0');
+      Wire.endTransmission();
+      //next_index = (next_index + 1) % numGauges;
+      next_index = 0;
     }
 
-
-    printToSerial();
+    if(next_index == 0){
+      printToSerial();
+    }
+    
     currentTime = millis();
 
   }
+
+  if(error)
+  {
+    SmState = STATE_STANDBY;
+    error = false;
+  } 
+  else 
+  {
+    SmState = STATE_READ;
+  }
   
-  SmState = STATE_READ;
 }
 
 //TRANSITION: STATE_MOVE -> STATE_READ

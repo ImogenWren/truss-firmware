@@ -99,23 +99,31 @@ void loop() {
     
       FLOATUNION d;
       
-      if(gaugeScales[i].is_ready()){
+      if(gaugeScales[i].wait_ready_timeout(100)){
         
-        d.number = gaugeScales[i].get_units(10);
+        d.number = gaugeScales[i].get_units(5);
         data[i] = d;
 //        Serial.print("gauge ");
 //        Serial.print(i);
 //        Serial.print(": ");
-//        Serial.println(d.number);
+//        Serial.print(d.number);
+//        Serial.print("\t");
         
       } else{
         
-        d.number = 999.999;
+        d.number = -999;
         data[i] = d;
+//        Serial.print("gauge ");
+//        Serial.print(i);
+//        Serial.print(": ");
+//        Serial.print(d.number);
+//        Serial.print("\t");
       }
   
       //delay(100);
     }
+
+//    Serial.println("");
 
     current_time = millis();
   }
