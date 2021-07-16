@@ -1,5 +1,7 @@
 //Controller Arduino for Strain Gauge measurements
 
+//Author: David P. Reid
+
 //Communicates through I2C with PERIPHERAL Arduino to receive strain gauge measurements.
 #include "TrussStepper.h"
 #include "ArduinoJson-v6.9.1.h"
@@ -19,7 +21,7 @@ TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL);
 int currentPos = 0;     //the position of the stepper in terms of number of steps
 int moveToPos = 0;      //the position the stepper should move to in terms of steps.
 const int positionLimit = 4*stepperStepsPerRev;
-const int direction = -1;   //reverse the direction of the steps
+const int direction = 1;   //reverse the direction of the steps -> -1
 
 //LIMIT SWITCHES
 bool limitSwitchesAttached = false;
@@ -27,15 +29,13 @@ bool limitSwitchesAttached = false;
 bool lowerLimitReached = false;
 #define limitSwitchUpper 9
 bool upperLimitReached = false;
-volatile int upperSteps = 0;
-volatile int lowerSteps = 0;
 
 //TIMING FOR GAUGE READING
 unsigned long timeInterval = 500;    //request gauge readings on this time interval
 unsigned long currentTime = millis();
 
 //GAUGE VARIABLES
-const int PERIPHERAL_ADDRESS = 8;
+const int PERIPHERAL_ADDRESS = 8;     //I think 0-7 are reserved for other things?
 const int numGauges = 7;
 int next_index = 0;       //the index of the next gauge to read data from
 
@@ -114,13 +114,13 @@ StateType SmState = STATE_STANDBY;    //START IN THE STANDBY STATE
 //TRANSITION: STATE_STANDBY -> STATE_STANDBY
 void Sm_State_Standby(void){
 
-//  if(limitSwitchesAttached)
-//  {
-//    detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
-//    detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
-//
-//    limitSwitchesAttached = false;
-//  }
+  if(limitSwitchesAttached)
+  {
+    detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
+    detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
+
+    limitSwitchesAttached = false;
+  }
   
   SmState = STATE_STANDBY;
 }
@@ -223,32 +223,21 @@ void Sm_State_Move(void){
 }
 
 //TRANSITION: STATE_ZERO -> STATE_READ
+//Move to the upper limit switch and then makes a fixed number of steps downwards and sets this as 0 position.
 void Sm_State_Zero(void){
-  //Should move until limit switch interrupt hits which defines a max/min point - then move half the distance between limit switches.
-  //Do I have the number of steps between limit switches hardcoded,
-  //Or do I calculate that by moving between the limits each time we zero?
-  
-  if(lowerLimitReached && upperLimitReached)
-  {
-    stepper.step((upperSteps - lowerSteps)*direction/2);
-    currentPos = 0;
-    lowerLimitReached = false;
-    upperLimitReached = false;
-    SmState = STATE_READ;
-  }
-  else if(upperLimitReached)
+
+  if(!upperLimitReached)
   {
     stepper.step(-1*direction);
-    currentPos -= 1;   
-    SmState = STATE_ZERO; 
-  }
-  else
-  {
-    stepper.step(1*direction);
-    currentPos += 1;
+    currentPos -= 1;      //not necessary?
     SmState = STATE_ZERO;
   }
-
+  else 
+  {
+    SmState = STATE_READ;
+  }
+    
+ 
 }
 
 //TRANSITION: STATE_TARE -> STATE_READ
@@ -313,7 +302,7 @@ StateType readSerialJSON(StateType SmState){
     
     const char* set = doc["set"];
 
-    if(strcmp(set, "speed")==0)
+    if(strcmp(set, "speed")==0)     //no implementation of speed change yet....
     {
       float new_speed = doc["to"];
     } 
@@ -365,25 +354,21 @@ StateType readSerialJSON(StateType SmState){
  } 
 
 //On an interrupt - will interrupt all state functions
+//TRANSITION: -> READ
 void doLimitLower(void){
   if(!lowerLimitReached)
   {
     //if the lower limit is reached, then the stepper should move a small distance back towards the centre, away from the limit
     lowerLimitReached = true;
-    lowerSteps = currentPos;
     
-    if(SmState == STATE_ZERO)
-    {
-       SmState = STATE_ZERO;
-    }
-    else 
-    {
-      //TEMP OUTPUT OF DATA
-      Serial.print("Lower limit at pos: ");
-      Serial.println(currentPos);
-      moveToPos = currentPos + stepperStepsPerRev;
-      SmState = STATE_MOVE;  
-    }
+    //TEMP OUTPUT OF DATA
+    Serial.print("Lower limit at pos: ");
+    Serial.println(currentPos);
+      
+    stepper.step(-2*stepperStepsPerRev);
+    currentPos = 0;
+    moveToPos = 0;
+    SmState = STATE_READ; 
   }
   
     
@@ -391,24 +376,20 @@ void doLimitLower(void){
 }
 
 //On an interrupt - will interrupt all state functions
+//TRANSITION: -> READ
 void doLimitUpper(void){
   if(!upperLimitReached)
   {
     upperLimitReached = true;
-    upperSteps = currentPos;
 
-    if(SmState == STATE_ZERO)
-    {
-        SmState = STATE_ZERO;
-    } 
-    else 
-    {
-      //TEMP OUTPUT OF DATA
-      Serial.print("Upper limit at pos: ");
-      Serial.println(currentPos);
-      moveToPos = currentPos - stepperStepsPerRev;
-      SmState = STATE_MOVE;  
-    }
+    //TEMP OUTPUT OF DATA
+    Serial.print("Upper limit at pos: ");
+    Serial.println(currentPos);
+
+    stepper.step(2*stepperStepsPerRev);
+    currentPos = 0;
+    moveToPos = 0;
+    SmState = STATE_READ;  
   }
     
     

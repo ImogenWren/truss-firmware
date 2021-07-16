@@ -7,6 +7,8 @@
 
 //Measure and transfer strain gauge values through I2C when requested from the CONTROLLER
 
+//Author David P. Reid
+
 #include "HX711.h"
 #include <Wire.h>
 

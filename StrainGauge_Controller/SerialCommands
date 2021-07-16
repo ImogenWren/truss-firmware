@@ -1,6 +1,6 @@
 {"set": "position", "to": value} 
 
-{"set": "speed", "to": value} 
+{"set": "speed", "to": value} //not implemented.
 
 {"set": "mode", "to": "read"} 
 
