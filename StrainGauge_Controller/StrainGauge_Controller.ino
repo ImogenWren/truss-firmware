@@ -7,6 +7,8 @@
 #include "ArduinoJson-v6.9.1.h"
 #include <Wire.h>
 
+const uint32_t I2C_BAUD_RATE = 400000; //100000 -> default; 400000 -> fastmode
+
 //JSON serialization
 #define COMMAND_SIZE 64  //originally 64
 StaticJsonDocument<COMMAND_SIZE> doc;
@@ -274,6 +276,7 @@ void setup() {
   
   //I2C communication with peripheral arduino
   Wire.begin();
+  Wire.setClock(I2C_BAUD_RATE);    
 
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
