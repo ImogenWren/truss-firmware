@@ -17,7 +17,7 @@
  * two-wire constructor.
  * Sets which wires should control the motor.
  */
-TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin)
+TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, int enable_pin)
 {
   this->step_number = 0;    // which step the motor is on
   this->direction = 0;      // motor direction
@@ -29,10 +29,12 @@ TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin)
   // Arduino pins for the motor control connection:
   this->direction_pin = direction_pin;
   this->pulse_pin = pulse_pin;
+  this->enable_pin = enable_pin;
 
   // setup the pins on the microcontroller:
   pinMode(this->direction_pin, OUTPUT);
   pinMode(this->pulse_pin, OUTPUT);
+  pinMode(this->enable_pin, OUTPUT);
 
 }
 
@@ -40,7 +42,7 @@ TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin)
  * two-wire constructor.
  * Sets which wires should control the motor.
  */
-TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, double duty_cycle)
+TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, int enable_pin, double duty_cycle)
 {
   this->step_number = 0;    // which step the motor is on
   this->direction = 0;      // motor direction
@@ -52,11 +54,30 @@ TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, 
   // Arduino pins for the motor control connection:
   this->direction_pin = direction_pin;
   this->pulse_pin = pulse_pin;
+  this->enable_pin = enable_pin;
 
   // setup the pins on the microcontroller:
   pinMode(this->direction_pin, OUTPUT);
   pinMode(this->pulse_pin, OUTPUT);
+  pinMode(this->enable_pin, OUTPUT);
 
+}
+
+/*
+* Sets the enable pin LOW in order to enable the stepper
+*/
+void TrussSTepper::enable()
+{
+	digitalWrite(this->enable_pin, LOW);
+	
+}
+
+/*
+* Sets the enable pin HIGH in order to disable the stepper
+*/
+void TrussStepper::disable()
+{
+	digitalWrite(this->enable_pin, HIGH);
 }
 
 /*

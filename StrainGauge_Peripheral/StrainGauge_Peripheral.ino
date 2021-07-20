@@ -101,8 +101,8 @@ void loop() {
     
       FLOATUNION d;
       
-      if(gaugeScales[i].wait_ready_timeout(100)){
-        
+      //if(gaugeScales[i].wait_ready_timeout(100)){
+        if(gaugeScales[i].is_ready()){
         d.number = gaugeScales[i].get_units(5);
         data[i] = d;
 //        Serial.print("gauge ");
@@ -122,7 +122,7 @@ void loop() {
 //        Serial.print("\t");
       }
   
-      //delay(100);
+      delay(100);
     }
 
 //    Serial.println("");

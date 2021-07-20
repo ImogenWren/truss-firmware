@@ -7,7 +7,7 @@
 #include "ArduinoJson-v6.9.1.h"
 #include <Wire.h>
 
-const uint32_t I2C_BAUD_RATE = 400000; //100000 -> default; 400000 -> fastmode
+const uint32_t I2C_BAUD_RATE = 100000; //100000 -> default; 400000 -> fastmode
 
 //JSON serialization
 #define COMMAND_SIZE 64  //originally 64
@@ -15,15 +15,17 @@ StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
 //STEPPER VARIABLES
+#define SEN 4
 #define SDIR 2
 #define SPUL 3
 const int stepperStepsPerRev = 200;
 const int stepperStepPeriod = 1000; //microseconds
-TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL);
+TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL, SEN);
 int currentPos = 0;     //the position of the stepper in terms of number of steps
 int moveToPos = 0;      //the position the stepper should move to in terms of steps.
 const int positionLimit = 4*stepperStepsPerRev;
 const int direction = 1;   //reverse the direction of the steps -> -1
+bool isStepperEnabled = false;
 
 //LIMIT SWITCHES
 bool limitSwitchesAttached = false;
@@ -116,6 +118,12 @@ StateType SmState = STATE_STANDBY;    //START IN THE STANDBY STATE
 //TRANSITION: STATE_STANDBY -> STATE_STANDBY
 void Sm_State_Standby(void){
 
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
+  
   if(limitSwitchesAttached)
   {
     detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
@@ -129,6 +137,12 @@ void Sm_State_Standby(void){
 
 //TRANSITION: STATE_READ -> STATE_READ
 void Sm_State_Read(void){
+
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
   
    bool error = false;
   
@@ -184,6 +198,12 @@ void Sm_State_Read(void){
 //This blocks gauge reading, but high stepper speed and slow update of gauges should make this fine.
 void Sm_State_Move(void){
 
+  if(!isStepperEnabled)
+  {
+    stepper.enable();
+    isStepperEnabled = true;
+  }
+  
   if(!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
@@ -228,6 +248,12 @@ void Sm_State_Move(void){
 //Move to the upper limit switch and then makes a fixed number of steps downwards and sets this as 0 position.
 void Sm_State_Zero(void){
 
+  if(!isStepperEnabled)
+  {
+    stepper.enable();
+    isStepperEnabled = true;
+  }
+  
   if(!upperLimitReached)
   {
     stepper.step(-1*direction);
@@ -244,6 +270,12 @@ void Sm_State_Zero(void){
 
 //TRANSITION: STATE_TARE -> STATE_READ
 void Sm_State_Tare(void){
+
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
   
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('t');

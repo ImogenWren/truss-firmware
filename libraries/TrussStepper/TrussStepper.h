@@ -20,10 +20,13 @@
 class TrussStepper {
   public:
     // constructor:
-    TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin);
-    TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, double duty_cycle);
+    TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, int enable_pin);
+    TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, int enable_pin, double duty_cycle);
     
-
+    // for setting the enable pin - depowering the stepper when not moving
+    void enable();
+    void disable();
+    
     // speed setter method:
     void setDelay(long delay);
 
@@ -41,6 +44,7 @@ class TrussStepper {
     // motor pin numbers:
     int direction_pin;
     int pulse_pin;
+    int enable_pin;
 
     unsigned long last_step_time; // time stamp in micro-seconds of when the last step was taken
 };

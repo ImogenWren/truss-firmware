@@ -14,6 +14,8 @@ TrussStepper	KEYWORD1	TrussStepper
 
 step	KEYWORD2
 setSpeed	KEYWORD2
+enable	KEYWORD2
+disable	KEYWORD2
 
 ######################################
 # Instances (KEYWORD2)
