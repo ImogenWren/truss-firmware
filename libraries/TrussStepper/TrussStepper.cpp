@@ -66,7 +66,7 @@ TrussStepper::TrussStepper(int steps_per_rev, int direction_pin, int pulse_pin, 
 /*
 * Sets the enable pin LOW in order to enable the stepper
 */
-void TrussSTepper::enable()
+void TrussStepper::enable()
 {
 	digitalWrite(this->enable_pin, LOW);
 	

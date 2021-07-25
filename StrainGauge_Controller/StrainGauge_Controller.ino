@@ -43,6 +43,10 @@ const int PERIPHERAL_ADDRESS = 8;     //I think 0-7 are reserved for other thing
 const int numGauges = 7;
 int next_index = 0;       //the index of the next gauge to read data from
 
+//LEDs - rotation indicator
+#define LED_UP 13
+#define LED_DOWN 14
+
 typedef union
 {
   float number;
@@ -198,6 +202,8 @@ void Sm_State_Read(void){
 //This blocks gauge reading, but high stepper speed and slow update of gauges should make this fine.
 void Sm_State_Move(void){
 
+  bool up = true;
+  
   if(!isStepperEnabled)
   {
     stepper.enable();
@@ -225,20 +231,24 @@ void Sm_State_Move(void){
       //step clockwise with stepper class
       stepper.step(-1*direction);    //might want to put a direction offset in the library
       currentPos -= 1;
+      up = false;
     } 
     else if(currentPos < moveToPos)
     {
       //step anticlockwise with stepper class
       stepper.step(1*direction);
-      currentPos += 1;  
+      currentPos += 1;
+      up = true;  
     }
 
+    enableRotationLEDs(up);
     SmState = STATE_MOVE;
     
   }
   else
   {
     //current position has reached the requested moveTo position so can go back to reading the gauges.
+    disableRotationLEDs();
     SmState = STATE_READ;
   }
   
@@ -305,6 +315,10 @@ void setup() {
 
   pinMode(limitSwitchLower, INPUT_PULLUP);
   pinMode(limitSwitchUpper, INPUT_PULLUP);
+  pinMode(LED_UP, OUTPUT);
+  pinMode(LED_DOWN, OUTPUT);
+  digitalWrite(LED_UP, LOW);
+  digitalWrite(LED_DOWN, LOW);
   
   //I2C communication with peripheral arduino
   Wire.begin();
@@ -444,4 +458,19 @@ void printToSerial(){
   
   Serial.println("}");
  
+}
+
+void enableRotationLEDs(bool up) {
+  if(up){
+    digitalWrite(LED_UP, HIGH);
+    digitalWrite(LED_DOWN, LOW);
+  } else{
+    digitalWrite(LED_UP, LOW);
+    digitalWrite(LED_DOWN, HIGH);
+  }
+}
+
+void disableRotationLEDs() {
+  digitalWrite(LED_UP, LOW);
+    digitalWrite(LED_DOWN, LOW);
 }
