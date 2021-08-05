@@ -7,7 +7,7 @@
 #include "ArduinoJson-v6.9.1.h"
 #include <Wire.h>
 
-const uint32_t I2C_BAUD_RATE = 100000; //100000 -> default; 400000 -> fastmode
+const uint32_t I2C_BAUD_RATE = 400000; //100000 -> default; 400000 -> fastmode
 
 //JSON serialization
 #define COMMAND_SIZE 64  //originally 64
@@ -23,8 +23,8 @@ const int stepperStepPeriod = 1000; //microseconds
 TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL, SEN);
 int currentPos = 0;     //the position of the stepper in terms of number of steps
 int moveToPos = 0;      //the position the stepper should move to in terms of steps.
-const int positionLimit = 4*stepperStepsPerRev;
-const int direction = 1;   //reverse the direction of the steps -> -1
+const int positionLimit = 100*stepperStepsPerRev;
+const int direction = -1;   //reverse the direction of the steps -> -1
 bool isStepperEnabled = false;
 
 //LIMIT SWITCHES
@@ -35,7 +35,7 @@ bool lowerLimitReached = false;
 bool upperLimitReached = false;
 
 //TIMING FOR GAUGE READING
-unsigned long timeInterval = 500;    //request gauge readings on this time interval
+unsigned long timeInterval = 1000;    //request gauge readings on this time interval
 unsigned long currentTime = millis();
 
 //GAUGE VARIABLES
@@ -74,6 +74,7 @@ typedef enum
   STATE_MOVE,           //allows stepper motor to move to new position
   STATE_ZERO,           //zeroes the position of the servo
   STATE_TARE,           //tares (zeroes) the gauge readings
+  STATE_GAUGE_RESET,
   
 } StateType;
 
@@ -84,6 +85,7 @@ void Sm_State_Read(void);
 void Sm_State_Move(void);
 void Sm_State_Zero(void);
 void Sm_State_Tare(void);
+void Sm_State_Gauge_Reset(void);
 
 /**
  * Type definition used to define the state
@@ -106,9 +108,10 @@ StateMachineType StateMachine[] =
   {STATE_MOVE, Sm_State_Move},
   {STATE_ZERO, Sm_State_Zero},
   {STATE_TARE, Sm_State_Tare},
+  {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
 };
  
-int NUM_STATES = 5;
+int NUM_STATES = 6;
 
 /**
  * Stores the current state of the state machine
@@ -152,8 +155,15 @@ void Sm_State_Read(void){
   
   if(millis() >= currentTime + timeInterval)
   {
+    char g[1];
+    sprintf(g, "%d", next_index);
+    Wire.beginTransmission(PERIPHERAL_ADDRESS);
+    Wire.write(g);
+    Wire.endTransmission();
+    delay(100);
 
-    if(Wire.requestFrom(PERIPHERAL_ADDRESS, 4))   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
+    Wire.requestFrom(PERIPHERAL_ADDRESS, 4);
+    if(Wire.available())   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
     {     
       
       for(byte i=0; i<4; i++)
@@ -170,24 +180,24 @@ void Sm_State_Read(void){
       Serial.print(next_index);
       Serial.println("}");
       //if there is an error in a gauge reading then reset to 0 index on controller and peripheral.
-      Wire.beginTransmission(PERIPHERAL_ADDRESS);
-      Wire.write('0');
-      Wire.endTransmission();
-      //next_index = (next_index + 1) % numGauges;
-      next_index = 0;
+//      Wire.beginTransmission(PERIPHERAL_ADDRESS);
+//      Wire.write('0');
+//      Wire.endTransmission();
+      next_index = (next_index + 1) % numGauges;
+      
+      Wire.begin();     //error in wire so start again
+      Wire.setClock(I2C_BAUD_RATE);
+//      next_index = 0;
     }
 
-    if(next_index == 0){
-      printToSerial();
-    }
-    
+    printToSerial();
     currentTime = millis();
 
   }
 
   if(error)
   {
-    SmState = STATE_STANDBY;
+    SmState = STATE_READ;
     error = false;
   } 
   else 
@@ -258,6 +268,14 @@ void Sm_State_Move(void){
 //Move to the upper limit switch and then makes a fixed number of steps downwards and sets this as 0 position.
 void Sm_State_Zero(void){
 
+  if(!limitSwitchesAttached)
+  {
+    attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
+    attachInterrupt(digitalPinToInterrupt(limitSwitchUpper), doLimitUpper, FALLING);
+
+    limitSwitchesAttached = true;
+  }
+  
   if(!isStepperEnabled)
   {
     stepper.enable();
@@ -289,6 +307,24 @@ void Sm_State_Tare(void){
   
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('t');
+  Wire.endTransmission();
+  delay(1000);
+  
+  SmState = STATE_READ;
+  
+}
+
+//TRANSITION: STATE_TARE -> STATE_READ
+void Sm_State_Gauge_Reset(void){
+
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
+  
+  Wire.beginTransmission(PERIPHERAL_ADDRESS);
+  Wire.write('r');
   Wire.endTransmission();
   delay(1000);
   
@@ -329,11 +365,13 @@ void setup() {
   while(!Serial);
 
   stepper.setDelay(stepperStepPeriod);
+  stepper.disable();
+  isStepperEnabled = false;
 
   //on startup make sure peripheral device has set the gauge index to 0.
-  Wire.beginTransmission(PERIPHERAL_ADDRESS);
-  Wire.write('0');
-  Wire.endTransmission();
+//  Wire.beginTransmission(PERIPHERAL_ADDRESS);
+//  Wire.write('0');
+//  Wire.endTransmission();
  }
 
 void loop() {
@@ -395,6 +433,10 @@ StateType readSerialJSON(StateType SmState){
         {
           SmState = STATE_TARE;
         }
+        else if(strcmp(new_mode, "gauge_reset") == 0)
+        {
+          SmState = STATE_GAUGE_RESET;
+        }
         
     }  
     
@@ -414,9 +456,8 @@ void doLimitLower(void){
     Serial.print("Lower limit at pos: ");
     Serial.println(currentPos);
       
-    stepper.step(-2*stepperStepsPerRev);
-    currentPos = 0;
-    moveToPos = 0;
+    stepper.step(-15*stepperStepsPerRev*direction);
+    moveToPos = currentPos;
     SmState = STATE_READ; 
   }
   
@@ -432,10 +473,10 @@ void doLimitUpper(void){
     upperLimitReached = true;
 
     //TEMP OUTPUT OF DATA
-    Serial.print("Upper limit at pos: ");
-    Serial.println(currentPos);
+    //Serial.print("Upper limit at pos: ");
+    //Serial.println(currentPos);
 
-    stepper.step(2*stepperStepsPerRev);
+    stepper.step(15*stepperStepsPerRev*direction);
     currentPos = 0;
     moveToPos = 0;
     SmState = STATE_READ;  

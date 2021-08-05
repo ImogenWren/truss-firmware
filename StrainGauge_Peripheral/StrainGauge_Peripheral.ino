@@ -44,10 +44,11 @@ const int scale_factor_6 = scale_factor_1*0.924;
 
 HX711 gaugeScales[numGauges] = {scale_0, scale_1, scale_2, scale_3, scale_4, scale_5, scale_6};
 
-const unsigned long reading_interval = 1000;
+const unsigned long reading_interval = 500;
+int read_index = 0;
 unsigned long current_time = millis();
 
-int next_index = 0;
+int write_index = 0;
 
 typedef union
 {
@@ -97,14 +98,14 @@ void setup() {
 void loop() {
   if(millis() >= current_time + reading_interval)
   {
-    for(int i=0; i<numGauges;i++){
+   // for(int i=0; i<numGauges;i++){
     
       FLOATUNION d;
       
       //if(gaugeScales[i].wait_ready_timeout(100)){
-        if(gaugeScales[i].is_ready()){
-        d.number = gaugeScales[i].get_units(5);
-        data[i] = d;
+        if(gaugeScales[read_index].is_ready()){
+        d.number = gaugeScales[read_index].get_units(5);
+        data[read_index] = d;
 //        Serial.print("gauge ");
 //        Serial.print(i);
 //        Serial.print(": ");
@@ -114,7 +115,7 @@ void loop() {
       } else{
         
         d.number = -999;
-        data[i] = d;
+        data[read_index] = d;
 //        Serial.print("gauge ");
 //        Serial.print(i);
 //        Serial.print(": ");
@@ -122,11 +123,11 @@ void loop() {
 //        Serial.print("\t");
       }
   
-      delay(100);
-    }
+      //delay(100);
+   // }
 
 //    Serial.println("");
-
+    read_index = (read_index + 1) % numGauges;
     current_time = millis();
   }
   
@@ -136,9 +137,9 @@ void loop() {
 //Only send one gauge value on any request
 void requestHandler(){
   
-  Wire.write(data[next_index].bytes, 4);
+  Wire.write(data[write_index].bytes, 4);
   
-  next_index = (next_index + 1) % numGauges;
+  //next_index = (next_index + 1) % numGauges;
 
   
 }
@@ -151,7 +152,31 @@ void receiveHandler(int numBytes){
   } 
   else if(c == '0')
   {
-    next_index = 0;
+    write_index = 0;
+  }
+  else if(c == '1')
+  {
+    write_index = 1;
+  }
+  else if(c == '2')
+  {
+    write_index = 2;
+  }
+  else if(c == '3')
+  {
+    write_index = 3;
+  }
+  else if(c == '4')
+  {
+    write_index = 4;
+  }
+  else if(c == '5')
+  {
+    write_index = 5;
+  }
+  else if(c == '6')
+  {
+    write_index = 6;
   }
   else if(c == 'r')
   {
@@ -193,5 +218,5 @@ void fullReset(){
   
   tareAllScales();
 
-  next_index = 0;
+  write_index = 0;
 }
