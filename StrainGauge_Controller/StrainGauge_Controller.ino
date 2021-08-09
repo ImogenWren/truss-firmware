@@ -159,11 +159,21 @@ void Sm_State_Read(void){
     sprintf(g, "%d", next_index);
     Wire.beginTransmission(PERIPHERAL_ADDRESS);
     Wire.write(g);
-    Wire.endTransmission();
-    delay(100);
+    if(Wire.endTransmission() == 0)
+    {
+      //success
+      error = false;
+    }
+    else
+    {
+      //failed to send to peripheral
+      error = true;
+    }
+    
+    delay(100);   //necessary?
 
-    Wire.requestFrom(PERIPHERAL_ADDRESS, 4);
-    if(Wire.available())   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
+    if(Wire.requestFrom(PERIPHERAL_ADDRESS, 4));
+    //if(Wire.available())   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
     {     
       
       for(byte i=0; i<4; i++)
@@ -185,8 +195,7 @@ void Sm_State_Read(void){
 //      Wire.endTransmission();
       next_index = (next_index + 1) % numGauges;
       
-      Wire.begin();     //error in wire so start again
-      Wire.setClock(I2C_BAUD_RATE);
+      
 //      next_index = 0;
     }
 
@@ -197,8 +206,11 @@ void Sm_State_Read(void){
 
   if(error)
   {
-    SmState = STATE_READ;
+    Wire.begin();     //error in wire so start again
+    Wire.setClock(I2C_BAUD_RATE);
     error = false;
+    SmState = STATE_READ;
+    
   } 
   else 
   {

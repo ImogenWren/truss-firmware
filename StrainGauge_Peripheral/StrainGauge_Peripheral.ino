@@ -144,6 +144,7 @@ void requestHandler(){
   
 }
 
+//should update this to receive a command and have a command enum setup.
 void receiveHandler(int numBytes){
   char c = Wire.read();
   if(c == 't')
