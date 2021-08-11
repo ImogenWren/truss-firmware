@@ -172,7 +172,7 @@ void Sm_State_Read(void){
     
     delay(100);   //necessary?
 
-    if(Wire.requestFrom(PERIPHERAL_ADDRESS, 4));
+    if(Wire.requestFrom(PERIPHERAL_ADDRESS, 4))
     //if(Wire.available())   //request 4 bytes of data from each gauge (returning a float value) from peripheral address PERIPHERAL_ADDRESS
     {     
       
@@ -183,7 +183,8 @@ void Sm_State_Read(void){
       
       next_index = (next_index + 1) % numGauges;
         
-    } else 
+    } 
+    else 
     {
       error = true;
       Serial.print("{\"error\":\"gauge\":");
