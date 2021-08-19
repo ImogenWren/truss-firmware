@@ -199,6 +199,7 @@ void setGain(int gain){
 
 void tareAllScales(){
   for(int i=0;i<numGauges;i++){
+    data[i].number = 0.0;       //set the stored data value to 0
     gaugeScales[i].tare();
    }
 }
