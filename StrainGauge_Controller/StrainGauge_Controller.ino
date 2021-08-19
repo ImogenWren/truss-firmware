@@ -200,7 +200,7 @@ void Sm_State_Read(void){
 //      next_index = 0;
     }
 
-    printToSerial();
+    report();
     currentTime = millis();
 
   }
@@ -321,7 +321,7 @@ void Sm_State_Tare(void){
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('t');
   Wire.endTransmission();
-  delay(1000);
+  delay(100);
   
   SmState = STATE_READ;
   
@@ -339,7 +339,7 @@ void Sm_State_Gauge_Reset(void){
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('r');
   Wire.endTransmission();
-  delay(1000);
+  delay(100);
   
   SmState = STATE_READ;
   
@@ -429,6 +429,7 @@ StateType readSerialJSON(StateType SmState){
         if(strcmp(new_mode, "standby") == 0)
         {
           SmState = STATE_STANDBY;
+          report();
         } 
         else if(strcmp(new_mode, "read") == 0)
         {
@@ -437,18 +438,22 @@ StateType readSerialJSON(StateType SmState){
         else if(strcmp(new_mode, "move") == 0)
         {
           SmState = STATE_MOVE;
+          report();
         }
         else if(strcmp(new_mode, "zero") == 0)
         {
           SmState = STATE_ZERO;
+          report();
         }
         else if(strcmp(new_mode, "tare") == 0)
         {
           SmState = STATE_TARE;
+          report();
         }
         else if(strcmp(new_mode, "gauge_reset") == 0)
         {
           SmState = STATE_GAUGE_RESET;
+          report();
         }
         
     }  
@@ -499,7 +504,7 @@ void doLimitUpper(void){
 
 }
 
-void printToSerial(){
+void report(){
   Serial.print("{\"load_cell\":");
   Serial.print(data[0].number);
   
@@ -509,6 +514,11 @@ void printToSerial(){
     Serial.print("\":");
     Serial.print(data[i].number);
   }
+
+  Serial.print(",\"state\":");
+  Serial.print(SmState);
+  Serial.print(",\"pos\":");
+  Serial.print(currentPos);
   
   Serial.println("}");
  
