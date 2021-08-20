@@ -47,6 +47,7 @@ int next_index = 0;       //the index of the next gauge to read data from
 #define LED_UP 13
 #define LED_DOWN 14
 
+
 typedef union
 {
   float number;
@@ -69,12 +70,12 @@ FLOATUNION data[numGauges] = {data_0, data_1, data_2, data_3, data_4, data_5, da
  */
 typedef enum
 {
-  STATE_STANDBY,        //no drive to motor, no reading of gauges
-  STATE_READ,           //requests, reads data from peripheral and writes data to serial
-  STATE_MOVE,           //allows stepper motor to move to new position
-  STATE_ZERO,           //zeroes the position of the servo
-  STATE_TARE,           //tares (zeroes) the gauge readings
-  STATE_GAUGE_RESET,
+  STATE_STANDBY = 0,        //no drive to motor, no reading of gauges
+  STATE_READ = 1,           //requests, reads data from peripheral and writes data to serial
+  STATE_MOVE = 2,           //allows stepper motor to move to new position
+  STATE_ZERO = 3,           //zeroes the position of the servo
+  STATE_TARE = 4,           //tares (zeroes) the gauge readings
+  STATE_GAUGE_RESET = 5,
   
 } StateType;
 
@@ -117,7 +118,7 @@ int NUM_STATES = 6;
  * Stores the current state of the state machine
  */
  
-StateType SmState = STATE_STANDBY;    //START IN THE STANDBY STATE
+StateType SmState = STATE_READ;    //START IN THE READ STATE
 
 
 //DEFINE STATE MACHINE FUNCTIONS================================================================
@@ -138,6 +139,7 @@ void Sm_State_Standby(void){
 
     limitSwitchesAttached = false;
   }
+
   
   SmState = STATE_STANDBY;
 }
@@ -305,7 +307,6 @@ void Sm_State_Zero(void){
   {
     SmState = STATE_READ;
   }
-    
  
 }
 
@@ -321,13 +322,13 @@ void Sm_State_Tare(void){
   Wire.beginTransmission(PERIPHERAL_ADDRESS);
   Wire.write('t');
   Wire.endTransmission();
-  delay(100);
+  delay(2000);
   
   SmState = STATE_READ;
   
 }
 
-//TRANSITION: STATE_TARE -> STATE_READ
+//TRANSITION: STATE_GAUGE_RESET -> STATE_READ
 void Sm_State_Gauge_Reset(void){
 
   if(isStepperEnabled)
@@ -429,7 +430,7 @@ StateType readSerialJSON(StateType SmState){
         if(strcmp(new_mode, "standby") == 0)
         {
           SmState = STATE_STANDBY;
-          report();
+          reportState(STATE_STANDBY);
         } 
         else if(strcmp(new_mode, "read") == 0)
         {
@@ -438,22 +439,22 @@ StateType readSerialJSON(StateType SmState){
         else if(strcmp(new_mode, "move") == 0)
         {
           SmState = STATE_MOVE;
-          report();
+          reportState(STATE_MOVE);
         }
         else if(strcmp(new_mode, "zero") == 0)
         {
           SmState = STATE_ZERO;
-          report();
+          reportState(STATE_ZERO);
         }
         else if(strcmp(new_mode, "tare") == 0)
         {
           SmState = STATE_TARE;
-          report();
+          reportState(STATE_TARE);
         }
         else if(strcmp(new_mode, "gauge_reset") == 0)
         {
           SmState = STATE_GAUGE_RESET;
-          report();
+          reportState(STATE_GAUGE_RESET);
         }
         
     }  
@@ -522,6 +523,12 @@ void report(){
   
   Serial.println("}");
  
+}
+
+void reportState(int state){
+  Serial.print("{\"state\":");
+  Serial.print(state);
+  Serial.println("}");
 }
 
 void enableRotationLEDs(bool up) {
