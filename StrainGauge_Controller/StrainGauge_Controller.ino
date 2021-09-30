@@ -75,7 +75,8 @@ typedef enum
   STATE_MOVE = 2,           //allows stepper motor to move to new position
   STATE_ZERO = 3,           //zeroes the position of the servo
   STATE_TARE = 4,           //tares (zeroes) the gauge readings
-  STATE_GAUGE_RESET = 5,
+  STATE_TARE_LOAD = 5,
+  STATE_GAUGE_RESET = 6,
   
 } StateType;
 
@@ -86,6 +87,7 @@ void Sm_State_Read(void);
 void Sm_State_Move(void);
 void Sm_State_Zero(void);
 void Sm_State_Tare(void);
+void Sm_State_Tare_Load(void);
 void Sm_State_Gauge_Reset(void);
 
 /**
@@ -109,10 +111,11 @@ StateMachineType StateMachine[] =
   {STATE_MOVE, Sm_State_Move},
   {STATE_ZERO, Sm_State_Zero},
   {STATE_TARE, Sm_State_Tare},
+  {STATE_TARE_LOAD, Sm_State_Tare_Load},
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
 };
  
-int NUM_STATES = 6;
+int NUM_STATES = 7;
 
 /**
  * Stores the current state of the state machine
@@ -328,6 +331,24 @@ void Sm_State_Tare(void){
   
 }
 
+//TRANSITION: STATE_TARE -> STATE_READ
+void Sm_State_Tare_Load(void){
+
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
+  
+  Wire.beginTransmission(PERIPHERAL_ADDRESS);
+  Wire.write('l');
+  Wire.endTransmission();
+  delay(2000);
+  
+  SmState = STATE_READ;
+  
+}
+
 //TRANSITION: STATE_GAUGE_RESET -> STATE_READ
 void Sm_State_Gauge_Reset(void){
 
@@ -450,6 +471,11 @@ StateType readSerialJSON(StateType SmState){
         {
           SmState = STATE_TARE;
           reportState(STATE_TARE);
+        }
+        else if(strcmp(new_mode, "tare_load") == 0)
+        {
+          SmState = STATE_TARE_LOAD;
+          reportState(STATE_TARE_LOAD);
         }
         else if(strcmp(new_mode, "gauge_reset") == 0)
         {
