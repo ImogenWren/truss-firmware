@@ -96,7 +96,7 @@ void setup() {
 }
 
 void loop() {
-  if(millis() >= current_time + reading_interval)
+  if(millis() - current_time >= reading_interval)
   {
    // for(int i=0; i<numGauges;i++){
     

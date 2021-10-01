@@ -158,7 +158,7 @@ void Sm_State_Read(void){
   
    bool error = false;
   
-  if(millis() >= currentTime + timeInterval)
+  if(millis() - currentTime >= timeInterval)
   {
     char g[1];
     sprintf(g, "%d", next_index);
@@ -393,7 +393,7 @@ void setup() {
   
   //I2C communication with peripheral arduino
   Wire.begin();
-  Wire.setClock(I2C_BAUD_RATE);    
+  Wire.setClock(I2C_BAUD_RATE); 
 
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
