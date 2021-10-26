@@ -150,6 +150,9 @@ void Sm_State_Standby(void){
 //TRANSITION: STATE_READ -> STATE_READ
 void Sm_State_Read(void){
 
+  upperLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
+  lowerLimitReached = false;
+  
   if(isStepperEnabled)
   {
     stepper.disable();
