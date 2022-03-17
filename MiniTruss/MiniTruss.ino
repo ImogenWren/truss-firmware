@@ -85,9 +85,10 @@ typedef enum
   STATE_WRITE = 2,            //writes to serial
   STATE_MOVE = 3,           //allows stepper motor to move to new position
   STATE_ZERO = 4,           //zeroes the position of the servo
-  STATE_TARE = 5,           //tares (zeroes) the gauge readings
+  STATE_TARE_GAUGES = 5,           //tares (zeroes) the gauge readings
   STATE_TARE_LOAD = 6,      //tares the load force gauge
-  STATE_GAUGE_RESET = 7,    //resets all gauges
+  STATE_TARE_ALL = 7,      //tares both the gauges and load cell
+  STATE_GAUGE_RESET = 8,    //resets all gauges
   
 } StateType;
 
@@ -98,8 +99,9 @@ void Sm_State_Read(void);
 void Sm_State_Write(void);
 void Sm_State_Move(void);
 void Sm_State_Zero(void);
-void Sm_State_Tare(void);
+void Sm_State_Tare_Gauges(void);
 void Sm_State_Tare_Load(void);
+void Sm_State_Tare_All(void);
 void Sm_State_Gauge_Reset(void);
 
 /**
@@ -123,12 +125,13 @@ StateMachineType StateMachine[] =
   {STATE_WRITE, Sm_State_Write},
   {STATE_MOVE, Sm_State_Move},
   {STATE_ZERO, Sm_State_Zero},
-  {STATE_TARE, Sm_State_Tare},
+  {STATE_TARE_GAUGES, Sm_State_Tare_Gauges},
   {STATE_TARE_LOAD, Sm_State_Tare_Load},
+  {STATE_TARE_ALL, Sm_State_Tare_All},
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
 };
  
-int NUM_STATES = 8;
+int NUM_STATES = 9;
 
 /**
  * Stores the current state of the state machine
@@ -303,9 +306,9 @@ void Sm_State_Zero(void){
  
 }
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_TARE -> STATE_READ
-void Sm_State_Tare(void){
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE GAUGES++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//TRANSITION: STATE_TARE_GAUGES -> STATE_READ
+void Sm_State_Tare_Gauges(void){
 
   if(isStepperEnabled)
   {
@@ -313,14 +316,15 @@ void Sm_State_Tare(void){
     isStepperEnabled = false;
   }
   
-  //IMPLEMENT TARING
+  tareGauges();
+  delay(100);
   
   SmState = STATE_READ;
   
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE LOAD ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_TARE -> STATE_READ
+//TRANSITION: STATE_TARE_LOAD -> STATE_READ
 void Sm_State_Tare_Load(void){
 
   if(isStepperEnabled)
@@ -329,7 +333,25 @@ void Sm_State_Tare_Load(void){
     isStepperEnabled = false;
   }
   
-  //IMPLEMENT TARE LOAD
+  tareLoad();
+  delay(100);
+  
+  SmState = STATE_READ;
+  
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE ALL ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//TRANSITION: STATE_TARE_ALL -> STATE_READ
+void Sm_State_Tare_All(void){
+
+  if(isStepperEnabled)
+  {
+    stepper.disable();
+    isStepperEnabled = false;
+  }
+  
+  tareAll();
+  delay(100);
   
   SmState = STATE_READ;
   
@@ -345,7 +367,8 @@ void Sm_State_Gauge_Reset(void){
     isStepperEnabled = false;
   }
   
-  //IMPLEMENT FULL GAUGE RESET
+  resetGauges();
+  delay(100);
   
   SmState = STATE_READ;
   
@@ -381,7 +404,7 @@ void setup() {
   stepper.disable();
   isStepperEnabled = false;
 
-  setupScales();
+  resetGauges();
 
 }
 
@@ -521,7 +544,7 @@ void reportState(int state){
   Serial.println("}");
 }
 
-void initialiseScales(){
+void initialiseGauges(){
   for(int i=0;i<numGauges;i++){
     gauges[i].begin(pins[i], SCK_PIN);
   }
@@ -533,21 +556,30 @@ void setGain(int gain){
   }
 }
 
+//Just tares the load cell
 void tareLoad(){
   data[0] = 0.0;
   gauges[0].tare();
 }
 
 //tares all gauge scales, but not load cell
-void tareAllGauges(){
+void tareGauges(){
   for(int i=1;i<numGauges;i++){
     data[i] = 0.0;       //set the stored data value to 0
     gauges[i].tare();
    }
 }
 
-void setupScales(){
-  initialiseScales();
+//tares all gauges, including load cell
+void tareAll(){
+  for(int i=0;i<numGauges;i++){
+    data[i] = 0.0;       //set the stored data value to 0
+    gauges[i].tare();
+   }
+}
+
+void resetGauges(){
+  initialiseGauges();
   setGain(128);
  
   gauges[0].set_scale(scale_load);   //calibrated with the load cell on the real truss -> OUTPUTS force in newtons
@@ -559,6 +591,6 @@ void setupScales(){
   gauges[6].set_scale(scale_factor_6);          //member 6
 
   
-  tareAllGauges();
+  tareAll();
 
 }
