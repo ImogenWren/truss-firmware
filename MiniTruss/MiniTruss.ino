@@ -72,7 +72,7 @@ HX711 gauges[numGauges] = {gauge_0, gauge_1, gauge_2, gauge_3, gauge_4, gauge_5,
 
 //TIMING FOR GAUGE WRITING
 unsigned long timeInterval = 1000;    //write out gauge readings with a period no smaller than 1s
-unsigned long previousTime = millis();
+unsigned long previousTime = 0;
 
 /**
  * Defines the valid states for the state machine
@@ -164,10 +164,9 @@ void Sm_State_Standby(void){
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ READ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_READ -> STATE_WRITE
-// State Read loops through all the guages, reading their values and storing for writing.
-// Then transitions to the write state in order to send the data via serial.
-// Just read as often as possible.
+//TRANSITION: STATE_READ -> STATE_READ
+// State Read loops through all the gauges, reading their values and storing for writing.
+// Remains in read state until user makes the change.
 void Sm_State_Read(void){
 
   upperLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
@@ -178,6 +177,8 @@ void Sm_State_Read(void){
     stepper.disable();
     isStepperEnabled = false;
   }
+
+  if(millis() - previousTime >= timeInterval){
   
    for(int i=0; i< numGauges; i++){
       //if(gaugeScales[i].wait_ready_timeout(100)){
@@ -186,15 +187,21 @@ void Sm_State_Read(void){
         data[i] = gauges[i].get_units(5);       //what is the best number of readings to take?
         
       } 
-  
-      delay(100);
+
+      delay(10);    //necessary?
    }
 
-   SmState = STATE_WRITE;
+    report();
+    previousTime = millis();
+    
+  }
+  
+   SmState = STATE_READ;
   
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WRITE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// NOT REACHED FROM ANY STATE NOR CAN USER SELECT IT ===== REMOVE
 //TRANSITION: STATE_WRITE -> STATE_READ
 // STATE_WRITE simply reports the stored gauge values by writing to serial.
 void Sm_State_Write(void){
@@ -396,6 +403,8 @@ void setup() {
   pinMode(limitSwitchLower, INPUT_PULLUP);
   pinMode(limitSwitchUpper, INPUT_PULLUP);
 
+  previousTime = millis();
+
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
   while(!Serial);
@@ -461,8 +470,8 @@ StateType readSerialJSON(StateType SmState){
         }
         else if(strcmp(new_mode, "tare") == 0)
         {
-          SmState = STATE_TARE;
-          reportState(STATE_TARE);//necessary?
+          SmState = STATE_TARE_GAUGES;
+          reportState(STATE_TARE_GAUGES);//necessary?
         }
         else if(strcmp(new_mode, "tare_load") == 0)
         {
