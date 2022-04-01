@@ -30,9 +30,9 @@ bool isStepperEnabled = false;
 
 //LIMIT SWITCHES
 bool limitSwitchesAttached = false;
-#define limitSwitchLower 18
+#define limitSwitchLower 11
 bool lowerLimitReached = false;
-#define limitSwitchUpper 17
+#define limitSwitchUpper 13
 bool upperLimitReached = false;
 
 //GAUGE READINGS
@@ -477,6 +477,11 @@ StateType readSerialJSON(StateType SmState){
         {
           SmState = STATE_TARE_LOAD;
           reportState(STATE_TARE_LOAD);   //necessary?
+        }
+        else if(strcmp(new_mode, "tare_all") == 0)
+        {
+          SmState = STATE_TARE_ALL;
+          reportState(STATE_TARE_ALL);   //necessary?
         }
         else if(strcmp(new_mode, "gauge_reset") == 0)
         {
