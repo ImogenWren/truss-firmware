@@ -229,8 +229,6 @@ void Sm_State_Write(void){
 //Remains in move state until current position matches moveTo position.
 //This blocks gauge reading, but high stepper speed and slow update of gauges should make this fine.
 void Sm_State_Move(void){
-
-  bool up = true;
   
   if(!isStepperEnabled)
   {
@@ -259,14 +257,12 @@ void Sm_State_Move(void){
       //step clockwise with stepper class
       stepper.step(-1*direction);    //might want to put a direction offset in the library
       currentPos -= 1;
-      up = false;
     } 
     else if(currentPos < moveToPos)
     {
       //step anticlockwise with stepper class
       stepper.step(1*direction);
       currentPos += 1;
-      up = true;  
     }
 
     //stay in move state until moveToPos == currentPos
