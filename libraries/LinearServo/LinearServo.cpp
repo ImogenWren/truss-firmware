@@ -6,6 +6,10 @@
  
  For remote control of the Actuonix L16-50-150-6-R linear actuator.
  Library only works for 3 pin servo - signal pin, +VCC, GND
+ 
+Control linear servo position with a single digital pin.
+
+Position is set between 0 (full retraction) and 100 (full extension).
  */
 
 #include <Arduino.h>
@@ -14,11 +18,9 @@
 /*
  * one-wire constructor.
  * Sets which pin should control the motor.
- * Speed of servo can be set in terms of the delay between steps in milliseconds
  */
 LinearServo::LinearServo(int signal_pin)
 {
-  this->pwmFreq = 490;	//pwm frequency of most Arduino boards inlcuding Uno
   this->delay = 10000L;		//step period in microseconds. Default value
   
   // Arduino pins for the motor control connection:
@@ -27,10 +29,32 @@ LinearServo::LinearServo(int signal_pin)
   // setup the pins on the microcontroller:
   pinMode(this->signal_pin, OUTPUT);
   
-  //set the minimum signal for full retraction of the linear servo
-  this->min_sig = round(255*1/(1000/this->pwmFreq));
-  //set the maximum signal for full extension of the linear servo
-  this->max_sig = round(255*2/(1000/this->pwmFreq));
+  this->current_position = 0;		//between 0(full retraction) and 100(full extension)
+  this->move_position = 0;
+
+}
+
+/*
+ * one-wire constructor.
+ * Sets which pin should control the motor.
+ * Can also set the pulse frequency by setting a custom delay.
+ */
+LinearServo::LinearServo(int signal_pin, long delay)
+{
+	if(delay > 2000L)
+	{
+		this->delay = delay;		
+  	} 
+  	else
+  	{
+  		this->delay = 2000L;
+  	}
+  	
+  // Arduino pins for the motor control connection:
+  this->signal_pin = signal_pin;
+
+  // setup the pins on the microcontroller:
+  pinMode(this->signal_pin, OUTPUT);
   
   this->current_position = 0;		//between 0(full retraction) and 100(full extension)
   this->move_position = 0;
@@ -42,7 +66,14 @@ LinearServo::LinearServo(int signal_pin)
  */
 void LinearServo::setDelay(long whatDelay)
 {
-  this->delay = whatDelay;
+	if(whatDelay > 2000L)
+	{
+		this->delay = whatDelay;		//step period in microseconds. Default value
+  	} 
+  	else
+  	{
+  		this->delay = 2000L;
+  	}
 }
 
 /*
@@ -50,42 +81,61 @@ void LinearServo::setDelay(long whatDelay)
  */
 void LinearServo::zero()
 {
-	for(int i=255;i>0;i--){
-		analogWrite(this->signal_pin, i);
-      		delayMicroseconds(10000);
+	updateMoveTo(0);
+	this->current_position = 100;
+	
+	for(int i=101;i>=0;i--)
+	{
+		update();
   	}
-  	this->current_position = 0;
-  	this->move_position = 0;
+  	
+  	
 }
-
 /*
- * Moves the motor steps_to_move steps.  If the number is negative,
- * the motor moves in the reverse direction.
- */
-void LinearServo::set_position(int position)
+* Update the target position that we want the servo to move to.
+*/
+
+void LinearServo::updateMoveTo(int moveTo)
 {
-	this->move_position = position;
+
+	this->move_position = moveTo;
+
+}
+/*
+ * Sets the position of the servo between 0 (fully retracted) and 100 (fully extended).
+ * A pulse of 1ms causes full retraction; 2ms causes full extension.
+ * 
+ */
+int LinearServo::update()
+{
 	
-	if(this->move_position > this->current_position){
-	
+	if(this->move_position > this->current_position)
+	{
 	    this->current_position += 1;
-	    singleStep(this->current_position);
+	    pulse(this->current_position);
 	    
-	  } else if(this->move_position < this->current_position){
-	  
+	  } 
+	  else if(this->move_position < this->current_position)
+	  {
 	    this->current_position -= 1;
-	    singleStep(this->current_position);
+	    pulse(this->current_position);
 	   
 	  } 
+	  else 
+	  {
+	  	pulse(this->current_position);
+	  }
+	  
+	  return this->current_position;
 }
 
 /*
- * Moves the motor a single step in the direction already defined.
+ * Sends a pulse of appropriate length for position.
  */
-void LinearServo::singleStep(int position)
+void LinearServo::pulse(int position)
 {
-    	float high_delay = 1000+(position*10);
-	float low_delay = this->delay - high_delay;
+    	unsigned long high_delay = 1000+(position*10);	//pulse length between 1ms and 2ms
+	unsigned long low_delay = this->delay - high_delay;	//the remainder of delay
 	digitalWrite(this->signal_pin, HIGH);
 	delayMicroseconds(high_delay);
 	digitalWrite(this->signal_pin, LOW);

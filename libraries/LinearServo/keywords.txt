@@ -6,22 +6,19 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-TrussStepper	KEYWORD1	TrussStepper
+LinearServo	KEYWORD1	LinearServo
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
-step	KEYWORD2
-setSpeed	KEYWORD2
-enable	KEYWORD2
-disable	KEYWORD2
+zero	KEYWORD2
+update	KEYWORD2
+updateMoveTo KEYWORD2
 
 ######################################
 # Instances (KEYWORD2)
 #######################################
-direction	KEYWORD2
-speed	KEYWORD2
 
 
 #######################################

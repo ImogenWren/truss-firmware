@@ -5,9 +5,13 @@
 //dprydereid@gmail.com
 // 17/03/22
 
+// Update for new LinearServo load control
+// 02/05/22
+// dprydereid@gmail.com
+
 // IMPORT LIBRARIES
 #include "HX711.h"
-#include "TrussStepper.h"
+#include "LinearServo.h"
 #include "ArduinoJson-v6.9.1.h"
 
 //JSON serialization
@@ -16,17 +20,16 @@ StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
 //STEPPER VARIABLES
-#define SEN 14
-#define SDIR 15
-#define SPUL 16
-const int stepperStepsPerRev = 200;
-const int stepperStepPeriod = 1000; //microseconds
-TrussStepper stepper = TrussStepper(stepperStepsPerRev, SDIR, SPUL, SEN);
-int currentPos = 0;     //the position of the stepper in terms of number of steps
-int moveToPos = 0;      //the position the stepper should move to in terms of steps.
-const int positionLimit = 100*stepperStepsPerRev;
-const int direction = -1;   //reverse the direction of the steps -> -1
-bool isStepperEnabled = false;
+#define DRIVE 14
+//#define SDIR 15
+//#define SPUL 16
+
+LinearServo servo = LinearServo(DRIVE);
+int currentPos = 0;     //the position of the servo as output from LinearServo library
+int moveToPos = 0;      //the position the servo should move to between 0 (full retraction) to 100 (full extension)
+unsigned long move_interval = 5000L;    //this is updated depending on the move distance
+unsigned long step_interval = 100L;     //at 5V takes approx. 100ms to move 1 position
+unsigned long enter_move_time = millis();    //the time at which the move state started
 
 //LIMIT SWITCHES
 bool limitSwitchesAttached = false;
@@ -82,13 +85,12 @@ typedef enum
 {
   STATE_STANDBY = 0,        //no drive to motor, no reading of gauges
   STATE_READ = 1,           //reads each gauge
-  STATE_WRITE = 2,            //writes to serial
-  STATE_MOVE = 3,           //allows stepper motor to move to new position
-  STATE_ZERO = 4,           //zeroes the position of the servo
-  STATE_TARE_GAUGES = 5,           //tares (zeroes) the gauge readings
-  STATE_TARE_LOAD = 6,      //tares the load force gauge
-  STATE_TARE_ALL = 7,      //tares both the gauges and load cell
-  STATE_GAUGE_RESET = 8,    //resets all gauges
+  STATE_MOVE = 2,           //allows stepper motor to move to new position
+  STATE_ZERO = 3,           //zeroes the position of the servo
+  STATE_TARE_GAUGES = 4,           //tares (zeroes) the gauge readings
+  STATE_TARE_LOAD = 5,      //tares the load force gauge
+  STATE_TARE_ALL = 6,      //tares both the gauges and load cell
+  STATE_GAUGE_RESET = 7,    //resets all gauges
   
 } StateType;
 
@@ -96,7 +98,6 @@ typedef enum
 //these are the functions that run whilst in each respective state.
 void Sm_State_Standby(void);
 void Sm_State_Read(void);
-void Sm_State_Write(void);
 void Sm_State_Move(void);
 void Sm_State_Zero(void);
 void Sm_State_Tare_Gauges(void);
@@ -122,7 +123,6 @@ StateMachineType StateMachine[] =
 {
   {STATE_STANDBY, Sm_State_Standby},
   {STATE_READ, Sm_State_Read},
-  {STATE_WRITE, Sm_State_Write},
   {STATE_MOVE, Sm_State_Move},
   {STATE_ZERO, Sm_State_Zero},
   {STATE_TARE_GAUGES, Sm_State_Tare_Gauges},
@@ -131,7 +131,7 @@ StateMachineType StateMachine[] =
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
 };
  
-int NUM_STATES = 9;
+int NUM_STATES = 8;
 
 /**
  * Stores the current state of the state machine
@@ -143,12 +143,6 @@ StateType SmState = STATE_READ;    //START IN THE READ STATE
 
 //TRANSITION: STATE_STANDBY -> STATE_STANDBY
 void Sm_State_Standby(void){
-
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
 
   //is there a need to detach these interrupts? Best to just attach and keep attached?
   if(limitSwitchesAttached)
@@ -171,12 +165,6 @@ void Sm_State_Read(void){
 
   upperLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
   lowerLimitReached = false;
-  
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
 
   if(millis() - previousTime >= timeInterval){
   
@@ -200,41 +188,12 @@ void Sm_State_Read(void){
   
 }
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WRITE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// NOT REACHED FROM ANY STATE NOR CAN USER SELECT IT ===== REMOVE
-//TRANSITION: STATE_WRITE -> STATE_READ
-// STATE_WRITE simply reports the stored gauge values by writing to serial.
-void Sm_State_Write(void){
-  
-  upperLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
-  lowerLimitReached = false;
-  
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
-
-  if(millis() - previousTime >= timeInterval){
-    report();
-    previousTime = millis();
-  }
-
-  SmState = STATE_READ;
-  
-}
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ MOVE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_MOVE -> STATE_READ
-//Remains in move state until current position matches moveTo position.
-//This blocks gauge reading, but high stepper speed and slow update of gauges should make this fine.
+//Remains in move state for an appropriate time to complete the move. There is no feedback on position from servo so need to base on time.
+//This blocks gauge reading, but high servo speed and slow update of gauges should make this fine.
 void Sm_State_Move(void){
-  
-  if(!isStepperEnabled)
-  {
-    stepper.enable();
-    isStepperEnabled = true;
-  }
   
   if(!limitSwitchesAttached)
   {
@@ -250,36 +209,25 @@ void Sm_State_Move(void){
     upperLimitReached = false;
   }
   
-  if(moveToPos != currentPos)
-  {
-    if(currentPos > moveToPos)
-    {
-      //step clockwise with stepper class
-      stepper.step(-1*direction);    //might want to put a direction offset in the library
-      currentPos -= 1;
-    } 
-    else if(currentPos < moveToPos)
-    {
-      //step anticlockwise with stepper class
-      stepper.step(1*direction);
-      currentPos += 1;
-    }
-
-    //stay in move state until moveToPos == currentPos
-    SmState = STATE_MOVE;
+  currentPos = servo.update();
+   
+   if(millis() - enter_move_time >= move_interval){
     
-  }
-  else
-  {
-    //current position has reached the requested moveTo position so can go back to reading the gauges.
-    SmState = STATE_READ;
-  }
+      SmState = STATE_READ;
+    
+   } 
+   else
+   {
+    
+      SmState = STATE_MOVE;
+    
+   }
   
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ZERO ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_ZERO -> STATE_READ
-//Move to the upper limit switch and then makes a fixed number of steps downwards and sets this as 0 position.
+//
 void Sm_State_Zero(void){
 
   if(!limitSwitchesAttached)
@@ -290,34 +238,15 @@ void Sm_State_Zero(void){
     limitSwitchesAttached = true;
   }
   
-  if(!isStepperEnabled)
-  {
-    stepper.enable();
-    isStepperEnabled = true;
-  }
+  servo.zero();
   
-  if(!upperLimitReached)
-  {
-    stepper.step(-1*direction);
-    currentPos -= 1;      //not necessary?
-    SmState = STATE_ZERO;
-  }
-  else 
-  {
-    SmState = STATE_READ;
-  }
+  SmState = STATE_READ;
  
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE GAUGES++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_GAUGES -> STATE_READ
 void Sm_State_Tare_Gauges(void){
-
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
   
   tareGauges();
   delay(100);
@@ -329,12 +258,6 @@ void Sm_State_Tare_Gauges(void){
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE LOAD ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_LOAD -> STATE_READ
 void Sm_State_Tare_Load(void){
-
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
   
   tareLoad();
   delay(100);
@@ -346,12 +269,6 @@ void Sm_State_Tare_Load(void){
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE ALL ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_ALL -> STATE_READ
 void Sm_State_Tare_All(void){
-
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
   
   tareAll();
   delay(100);
@@ -364,12 +281,6 @@ void Sm_State_Tare_All(void){
 //TRANSITION: STATE_GAUGE_RESET -> STATE_READ
 void Sm_State_Gauge_Reset(void){
 
-  if(isStepperEnabled)
-  {
-    stepper.disable();
-    isStepperEnabled = false;
-  }
-  
   resetGauges();
   delay(100);
   
@@ -405,9 +316,6 @@ void setup() {
   Serial.begin(57600);
   while(!Serial);
 
-  stepper.setDelay(stepperStepPeriod);
-  stepper.disable();
-  isStepperEnabled = false;
 
   resetGauges();
 
@@ -434,9 +342,11 @@ StateType readSerialJSON(StateType SmState){
   
         float new_position = doc["to"];
         
-        if(new_position >= -positionLimit && new_position <= positionLimit)
+        if(new_position >= 0 && new_position <= 100)
         {
           moveToPos = new_position;
+          servo.updateMoveTo(moveToPos);
+          move_interval = abs(moveToPos - currentPos)*step_interval;
         } 
         else
         {
@@ -457,6 +367,7 @@ StateType readSerialJSON(StateType SmState){
         else if(strcmp(new_mode, "move") == 0)
         {
           SmState = STATE_MOVE;
+          enter_move_time = millis();
           reportState(STATE_MOVE);//necessary?
         }
         else if(strcmp(new_mode, "zero") == 0)
@@ -496,15 +407,15 @@ StateType readSerialJSON(StateType SmState){
 void doLimitLower(void){
   if(!lowerLimitReached)
   {
-    //if the lower limit is reached, then the stepper should move a small distance back towards the centre, away from the limit
-    lowerLimitReached = true;
-    
-    //TEMP OUTPUT OF DATA
-    //Serial.print("Lower limit at pos: ");
-    //Serial.println(currentPos);
-      
-    stepper.step(-15*stepperStepsPerRev*direction);
-    moveToPos = currentPos;
+//    //if the lower limit is reached, then the stepper should move a small distance back towards the centre, away from the limit
+//    lowerLimitReached = true;
+//    
+//    //TEMP OUTPUT OF DATA
+//    //Serial.print("Lower limit at pos: ");
+//    //Serial.println(currentPos);
+//      
+//    stepper.step(-15*stepperStepsPerRev*direction);
+//    moveToPos = currentPos;
     SmState = STATE_READ; 
   }
 }
@@ -514,15 +425,15 @@ void doLimitLower(void){
 void doLimitUpper(void){
   if(!upperLimitReached)
   {
-    upperLimitReached = true;
-
-    //TEMP OUTPUT OF DATA
-    //Serial.print("Upper limit at pos: ");
-    //Serial.println(currentPos);
-
-    stepper.step(15*stepperStepsPerRev*direction);
-    currentPos = 0;
-    moveToPos = 0;
+//    upperLimitReached = true;
+//
+//    //TEMP OUTPUT OF DATA
+//    //Serial.print("Upper limit at pos: ");
+//    //Serial.println(currentPos);
+//
+//    stepper.step(15*stepperStepsPerRev*direction);
+//    currentPos = 0;
+//    moveToPos = 0;
     SmState = STATE_READ;  
   }
 }
