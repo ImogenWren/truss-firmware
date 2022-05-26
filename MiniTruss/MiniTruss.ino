@@ -20,7 +20,7 @@ StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
 //STEPPER VARIABLES
-#define DRIVE 14
+#define DRIVE 12
 //#define SDIR 15
 //#define SPUL 16
 
@@ -63,13 +63,23 @@ HX711 gauge_5;
 HX711 gauge_6;
 
 //these will need to be calibrated for new truss setup
-const int scale_load = -15184;
-const int scale_factor_1 = 4050;
-const int scale_factor_2 = scale_factor_1*1.030;
-const int scale_factor_3 = scale_factor_1*0.977;
-const int scale_factor_4 = scale_factor_1*0.947;
-const int scale_factor_5 = scale_factor_1*0.818;
-const int scale_factor_6 = scale_factor_1*0.924;
+// OLD values for large truss
+//const int scale_load = -15184;
+//const int scale_factor_1 = 4050;
+//const int scale_factor_2 = scale_factor_1*1.030;
+//const int scale_factor_3 = scale_factor_1*0.977;
+//const int scale_factor_4 = scale_factor_1*0.947;
+//const int scale_factor_5 = scale_factor_1*0.818;
+//const int scale_factor_6 = scale_factor_1*0.924;
+
+const int scale_load = 15184;
+const int scale_factor_1 = 3284;
+const int scale_factor_2 = scale_factor_1;
+const int scale_factor_3 = scale_factor_1;
+const int scale_factor_4 = scale_factor_1;
+const int scale_factor_5 = scale_factor_1;
+const int scale_factor_6 = scale_factor_1;
+
 
 HX711 gauges[numGauges] = {gauge_0, gauge_1, gauge_2, gauge_3, gauge_4, gauge_5, gauge_6};
 
