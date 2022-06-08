@@ -9,6 +9,10 @@
 // 02/05/22
 // dprydereid@gmail.com
 
+// Added new WAIT state and READ state now only measures 1 gauge every loop of the state.
+// 08/06/22
+// dprydereid@gmail.com
+
 // IMPORT LIBRARIES
 #include "HX711.h"
 #include "LinearServo.h"
@@ -52,6 +56,8 @@ const int GAUGE_4_DT = 7;
 const int GAUGE_5_DT = 8;
 const int GAUGE_6_DT = 9;
 
+int read_index = 0;   //holds a flag for which gauge to read on next loop of state machine.
+
 const int pins[numGauges] = {GAUGE_0_DT, GAUGE_1_DT, GAUGE_2_DT, GAUGE_3_DT, GAUGE_4_DT, GAUGE_5_DT, GAUGE_6_DT};
 
 HX711 gauge_0;
@@ -87,6 +93,10 @@ HX711 gauges[numGauges] = {gauge_0, gauge_1, gauge_2, gauge_3, gauge_4, gauge_5,
 unsigned long timeInterval = 1000;    //write out gauge readings with a period no smaller than 1s
 unsigned long previousTime = 0;
 
+//TIMING FOR WAIT STATE
+unsigned long waitInterval = 2000;    //this changes depending on what is being waited for.
+unsigned long waitStartTime = 0;
+
 /**
  * Defines the valid states for the state machine
  * 
@@ -101,6 +111,7 @@ typedef enum
   STATE_TARE_LOAD = 5,      //tares the load force gauge
   STATE_TARE_ALL = 6,      //tares both the gauges and load cell
   STATE_GAUGE_RESET = 7,    //resets all gauges
+  STATE_WAIT = 8,    //a wait state to although functions like taring to complete before returning to READ state.
   
 } StateType;
 
@@ -114,6 +125,7 @@ void Sm_State_Tare_Gauges(void);
 void Sm_State_Tare_Load(void);
 void Sm_State_Tare_All(void);
 void Sm_State_Gauge_Reset(void);
+void Sm_State_Wait(void);
 
 /**
  * Type definition used to define the state
@@ -139,9 +151,10 @@ StateMachineType StateMachine[] =
   {STATE_TARE_LOAD, Sm_State_Tare_Load},
   {STATE_TARE_ALL, Sm_State_Tare_All},
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
+  {STATE_WAIT, Sm_State_Wait},
 };
  
-int NUM_STATES = 8;
+int NUM_STATES = 9;
 
 /**
  * Stores the current state of the state machine
@@ -169,7 +182,7 @@ void Sm_State_Standby(void){
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ READ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_READ -> STATE_READ
-// State Read loops through all the gauges, reading their values and storing for writing.
+// State Read reads the next gauge and stores the data for reporting.
 // Remains in read state until user makes the change.
 void Sm_State_Read(void){
 
@@ -178,17 +191,18 @@ void Sm_State_Read(void){
 
   if(millis() - previousTime >= timeInterval){
   
-   for(int i=0; i< numGauges; i++){
+   //for(int i=0; i< numGauges; i++){
       //if(gaugeScales[i].wait_ready_timeout(100)){
-      if(gauges[i].is_ready()){
+      if(gauges[next_index].is_ready()){
         
-        data[i] = gauges[i].get_units(5);       //what is the best number of readings to take?
+        data[read_index] = gauges[read_index].get_units(5);       //what is the best number of readings to take?
         
       } 
 
-      delay(10);    //necessary?
-   }
+      //delay(10);    //necessary?
+   //}
 
+    read_index = (read_index + 1) % numGauges;    //move to next read_index and loop back to 0 after numGauges reached
     report();
     previousTime = millis();
     
@@ -255,35 +269,41 @@ void Sm_State_Zero(void){
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE GAUGES++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_TARE_GAUGES -> STATE_READ
+//TRANSITION: STATE_TARE_GAUGES -> STATE_WAIT
 void Sm_State_Tare_Gauges(void){
   
   tareGauges();
-  delay(100);
-  
-  SmState = STATE_READ;
+
+  waitStartTime = millis();
+  waitInterval = 2000;
+
+  SmState = STATE_WAIT;
   
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE LOAD ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_TARE_LOAD -> STATE_READ
+//TRANSITION: STATE_TARE_LOAD -> STATE_WAIT
 void Sm_State_Tare_Load(void){
   
   tareLoad();
-  delay(100);
+
+  waitStartTime = millis();
+  waitInterval = 1000;
   
-  SmState = STATE_READ;
+  SmState = STATE_WAIT;
   
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE ALL ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//TRANSITION: STATE_TARE_ALL -> STATE_READ
+//TRANSITION: STATE_TARE_ALL -> STATE_WAIT
 void Sm_State_Tare_All(void){
   
   tareAll();
-  delay(100);
+
+  waitStartTime = millis();
+  waitInterval = 2000;
   
-  SmState = STATE_READ;
+  SmState = STATE_WAIT;
   
 }
 
@@ -292,9 +312,27 @@ void Sm_State_Tare_All(void){
 void Sm_State_Gauge_Reset(void){
 
   resetGauges();
-  delay(100);
+
+  waitStartTime = millis();
+  waitInterval = 3000;
   
-  SmState = STATE_READ;
+  SmState = STATE_WAIT;
+  
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WAIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//TRANSITION: STATE_WAIT -> STATE_READ
+void Sm_State_Wait(void){
+
+  if(millis() - waitStartTime < waitInterval){
+
+      SmState = STATE_WAIT;
+    
+  } else {
+
+      SmState = STATE_READ;
+    
+  }
   
 }
 
