@@ -193,7 +193,7 @@ void Sm_State_Read(void){
   
    //for(int i=0; i< numGauges; i++){
       //if(gaugeScales[i].wait_ready_timeout(100)){
-      if(gauges[next_index].is_ready()){
+      if(gauges[read_index].is_ready()){
         
         data[read_index] = gauges[read_index].get_units(5);       //what is the best number of readings to take?
         
@@ -264,7 +264,10 @@ void Sm_State_Zero(void){
   
   servo.zero();
   
-  SmState = STATE_READ;
+  waitStartTime = millis();
+  waitInterval = 3000;
+
+  SmState = STATE_WAIT;
  
 }
 
