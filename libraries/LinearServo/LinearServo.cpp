@@ -89,6 +89,7 @@ void LinearServo::zero()
 		update();
   	}
   	
+  	this->current_position = 0;
   	
 }
 /*

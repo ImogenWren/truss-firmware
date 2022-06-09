@@ -263,6 +263,8 @@ void Sm_State_Zero(void){
   }
   
   servo.zero();
+
+  currentPos = 0;
   
   waitStartTime = millis();
   waitInterval = 3000;
