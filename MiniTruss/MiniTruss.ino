@@ -254,7 +254,6 @@ void Sm_State_Zero(void){
   if(!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
-    attachInterrupt(digitalPinToInterrupt(limitSwitchUpper), doLimitUpper, FALLING);
 
     limitSwitchesAttached = true;
   }
