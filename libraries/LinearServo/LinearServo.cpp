@@ -85,9 +85,10 @@ void LinearServo::zero()
 	updateMoveTo(0);
 	this->current_position = this->max_pos;
 	
-	for(int i=101;i>=0;i--)
+	for(int i=this->max_pos;i>=0;i--)
 	{
 		update();
+		delayMicroseconds(100000);
   	}
   	
   	this->current_position = 0;
