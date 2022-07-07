@@ -19,7 +19,7 @@ Position is set between 0 (full retraction) and 100 (full extension).
  * one-wire constructor.
  * Sets which pin should control the motor.
  */
-LinearServo::LinearServo(int signal_pin)
+LinearServo::LinearServo(int signal_pin, int max_position)
 {
   this->delay = 10000L;		//step period in microseconds. Default value
   
@@ -31,6 +31,7 @@ LinearServo::LinearServo(int signal_pin)
   
   this->current_position = 0;		//between 0(full retraction) and 100(full extension)
   this->move_position = 0;
+  this->max_pos = max_position;	//the limit of servo extension
 
 }
 
@@ -39,7 +40,7 @@ LinearServo::LinearServo(int signal_pin)
  * Sets which pin should control the motor.
  * Can also set the pulse frequency by setting a custom delay.
  */
-LinearServo::LinearServo(int signal_pin, long delay)
+LinearServo::LinearServo(int signal_pin, int max_position, long delay)
 {
 	if(delay > 2000L)
 	{
@@ -58,7 +59,7 @@ LinearServo::LinearServo(int signal_pin, long delay)
   
   this->current_position = 0;		//between 0(full retraction) and 100(full extension)
   this->move_position = 0;
-
+  this->max_pos = max_position;	//the limit of servo extension
 }
 
 /*
@@ -82,7 +83,7 @@ void LinearServo::setDelay(long whatDelay)
 void LinearServo::zero()
 {
 	updateMoveTo(0);
-	this->current_position = 100;
+	this->current_position = this->max_pos;
 	
 	for(int i=101;i>=0;i--)
 	{
