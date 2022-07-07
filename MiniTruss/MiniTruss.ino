@@ -23,15 +23,15 @@
 StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
-//STEPPER VARIABLES
+//Linear actuator VARIABLES
 #define DRIVE 12
 //#define SDIR 15
 //#define SPUL 16
 
-LinearServo servo = LinearServo(DRIVE);
 int currentPos = 0;     //the position of the servo as output from LinearServo library
 int moveToPos = 0;      //the position the servo should move to between 0 (full retraction) to 100 (full extension)
 int max_position = 20;  //% extension of linear actuator
+LinearServo servo = LinearServo(DRIVE, max_position);
 unsigned long move_interval = 5000L;    //this is updated depending on the move distance
 unsigned long step_interval = 100L;     //at 5V takes approx. 100ms to move 1 position
 unsigned long enter_move_time = millis();    //the time at which the move state started
