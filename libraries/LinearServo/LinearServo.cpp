@@ -99,8 +99,21 @@ void LinearServo::zero()
 
 void LinearServo::updateMoveTo(int moveTo)
 {
-
-	this->move_position = moveTo;
+	if(moveTo < 0)
+	{
+		this->move_position = 0;
+	} 
+	else if(moveTo <= this->max_pos)
+	{
+		this->move_position = moveTo;
+	} 
+	else 
+	{
+		this->move_position = this->max_pos;
+	}
+	
+	
+	
 
 }
 /*
