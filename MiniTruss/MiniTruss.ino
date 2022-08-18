@@ -97,6 +97,9 @@ unsigned long previousTime = 0;
 unsigned long waitInterval = 2000;    //this changes depending on what is being waited for.
 unsigned long waitStartTime = 0;
 
+//Additional variables for new Truss PCB design - Imogen Heard 18/08/22
+#define OUTPUT_ENABLE A1   // Must be set high if using Logic Level Shifters
+
 /**
  * Defines the valid states for the state machine
  * 
@@ -362,6 +365,9 @@ void setup() {
 
   pinMode(limitSwitchLower, INPUT_PULLUP);
   pinMode(limitSwitchUpper, INPUT_PULLUP);
+
+  pinMode(OUTPUT_ENABLE, OUTPUT);
+  digitalWrite(OUTPUT_ENABLE, HIGH);
 
   previousTime = millis();
 
