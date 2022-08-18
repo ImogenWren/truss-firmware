@@ -9,7 +9,7 @@
 // 02/05/22
 // dprydereid@gmail.com
 
-// Added new WAIT state and READ state now only measures 1 gauge every loop of the state.
+// Added new WAIT state and READ state now only measures 1 gauge every loop of the state so as not to remain in read state for too long, reducing responsiveness.
 // 08/06/22
 // dprydereid@gmail.com
 
@@ -23,14 +23,15 @@
 StaticJsonDocument<COMMAND_SIZE> doc;
 char command[COMMAND_SIZE];
 
-//STEPPER VARIABLES
+//Linear actuator VARIABLES
 #define DRIVE 12
 //#define SDIR 15
 //#define SPUL 16
 
-LinearServo servo = LinearServo(DRIVE);
 int currentPos = 0;     //the position of the servo as output from LinearServo library
 int moveToPos = 0;      //the position the servo should move to between 0 (full retraction) to 100 (full extension)
+int max_position = 20;  //% extension of linear actuator
+LinearServo servo = LinearServo(DRIVE, max_position);
 unsigned long move_interval = 5000L;    //this is updated depending on the move distance
 unsigned long step_interval = 100L;     //at 5V takes approx. 100ms to move 1 position
 unsigned long enter_move_time = millis();    //the time at which the move state started
@@ -39,8 +40,7 @@ unsigned long enter_move_time = millis();    //the time at which the move state 
 bool limitSwitchesAttached = false;
 #define limitSwitchLower 11
 bool lowerLimitReached = false;
-#define limitSwitchUpper 13
-bool upperLimitReached = false;
+int soft_lower_limit = 15;        //need to have a soft limit which the servo returns to if it hits the hard limit switch
 
 //GAUGE READINGS
 const int numGauges = 7;
@@ -174,7 +174,7 @@ void Sm_State_Standby(void){
   if(limitSwitchesAttached)
   {
     detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
-    detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
+    //detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
 
     limitSwitchesAttached = false;
   }
@@ -189,8 +189,8 @@ void Sm_State_Standby(void){
 // Remains in read state until user makes the change.
 void Sm_State_Read(void){
 
-  upperLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
-  lowerLimitReached = false;
+  lowerLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
+  
 
   if(millis() - previousTime >= timeInterval){
   
@@ -225,15 +225,12 @@ void Sm_State_Move(void){
   if(!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
-    attachInterrupt(digitalPinToInterrupt(limitSwitchUpper), doLimitUpper, FALLING);
-
     limitSwitchesAttached = true;
   }
 
-  if(lowerLimitReached || upperLimitReached)
+  if(lowerLimitReached)
   {
     lowerLimitReached = false;
-    upperLimitReached = false;
   }
   
   currentPos = servo.update();
@@ -260,7 +257,6 @@ void Sm_State_Zero(void){
   if(!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
-    attachInterrupt(digitalPinToInterrupt(limitSwitchUpper), doLimitUpper, FALLING);
 
     limitSwitchesAttached = true;
   }
@@ -364,7 +360,6 @@ void Sm_Run(void)
 void setup() {
 
   pinMode(limitSwitchLower, INPUT_PULLUP);
-  pinMode(limitSwitchUpper, INPUT_PULLUP);
 
   pinMode(OUTPUT_ENABLE, OUTPUT);
   digitalWrite(OUTPUT_ENABLE, HIGH);
@@ -401,7 +396,7 @@ StateType readSerialJSON(StateType SmState){
   
         float new_position = doc["to"];
         
-        if(new_position >= 0 && new_position <= 100)
+        if(new_position >= 0 && new_position <= max_position)
         {
           moveToPos = new_position;
           servo.updateMoveTo(moveToPos);
@@ -466,34 +461,12 @@ StateType readSerialJSON(StateType SmState){
 void doLimitLower(void){
   if(!lowerLimitReached)
   {
-//    //if the lower limit is reached, then the stepper should move a small distance back towards the centre, away from the limit
-//    lowerLimitReached = true;
-//    
-//    //TEMP OUTPUT OF DATA
-//    //Serial.print("Lower limit at pos: ");
-//    //Serial.println(currentPos);
-//      
-//    stepper.step(-15*stepperStepsPerRev*direction);
-//    moveToPos = currentPos;
-    SmState = STATE_READ; 
-  }
-}
-
-//On an interrupt - will interrupt all state functions
-//TRANSITION: -> READ
-void doLimitUpper(void){
-  if(!upperLimitReached)
-  {
-//    upperLimitReached = true;
-//
-//    //TEMP OUTPUT OF DATA
-//    //Serial.print("Upper limit at pos: ");
-//    //Serial.println(currentPos);
-//
-//    stepper.step(15*stepperStepsPerRev*direction);
-//    currentPos = 0;
-//    moveToPos = 0;
-    SmState = STATE_READ;  
+    
+    moveToPos = soft_lower_limit;
+    servo.updateMoveTo(moveToPos);
+    move_interval = abs(moveToPos - currentPos)*step_interval;
+          
+    SmState = STATE_MOVE; 
   }
 }
 

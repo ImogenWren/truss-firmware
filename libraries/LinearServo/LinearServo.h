@@ -18,8 +18,8 @@
 class LinearServo {
   public:
     // constructor:
-    LinearServo(int signal_pin);
-    LinearServo(int signal_pin, long delay);
+    LinearServo(int signal_pin, int max_position);
+    LinearServo(int signal_pin, int max_position, long delay);
     
     // speed setter method:
     void setDelay(long delay);
@@ -34,6 +34,7 @@ class LinearServo {
     unsigned long delay; // delay between steps, in micros
     int current_position;
     int move_position;		
+    int max_pos;
     
     // motor pin numbers:
     int signal_pin;
