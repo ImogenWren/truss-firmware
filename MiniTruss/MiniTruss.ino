@@ -46,6 +46,7 @@ int soft_lower_limit = 15;        //need to have a soft limit which the servo re
 const int numGauges = 7;
 float data[numGauges] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
+
 //GAUGE SETUP
 const int SCK_PIN = 2;  //Common CLOCK pin
 const int GAUGE_0_DT = 3; //DATA pins
@@ -88,6 +89,7 @@ const int scale_factor_6 = scale_factor_1;
 
 
 HX711 gauges[numGauges] = {gauge_0, gauge_1, gauge_2, gauge_3, gauge_4, gauge_5, gauge_6};
+
 
 //TIMING FOR GAUGE WRITING
 unsigned long timeInterval = 1000;    //write out gauge readings with a period no smaller than 1s
@@ -188,6 +190,7 @@ void Sm_State_Standby(void){
 // State Read reads the next gauge and stores the data for reporting.
 // Remains in read state until user makes the change.
 void Sm_State_Read(void){
+  Serial.print("READ");
 
   lowerLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
   
@@ -376,7 +379,7 @@ void setup() {
 }
 
 void loop() {
-
+  
   Sm_Run();
 
 }
