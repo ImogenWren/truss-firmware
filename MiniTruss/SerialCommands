@@ -10,4 +10,8 @@
 
 {"set": "mode", "to":"zero"}
 
-{"set": "mode", "to":"tare"} 
+{"set": "mode", "to":"tare_all"} 
+
+{"set": "mode", "to":"gauge_reset"} 
+
+{"set": "mode", "to":"calibrate"} 

@@ -79,8 +79,9 @@ HX711 gauge_6;
 //const int scale_factor_5 = scale_factor_1*0.818;
 //const int scale_factor_6 = scale_factor_1*0.924;
 
-const int scale_load = 15184;
-const int scale_factor_1 = 3284;
+//still testing these factors
+const int scale_load = 53.12;
+const int scale_factor_1 = 53.12;
 const int scale_factor_2 = scale_factor_1;
 const int scale_factor_3 = scale_factor_1;
 const int scale_factor_4 = scale_factor_1;
@@ -117,6 +118,7 @@ typedef enum
   STATE_TARE_ALL = 6,      //tares both the gauges and load cell
   STATE_GAUGE_RESET = 7,    //resets all gauges
   STATE_WAIT = 8,    //a wait state to although functions like taring to complete before returning to READ state.
+  STATE_CALIBRATE = 9,
   
 } StateType;
 
@@ -131,6 +133,7 @@ void Sm_State_Tare_Load(void);
 void Sm_State_Tare_All(void);
 void Sm_State_Gauge_Reset(void);
 void Sm_State_Wait(void);
+void Sm_State_Calibrate(void);
 
 /**
  * Type definition used to define the state
@@ -157,15 +160,16 @@ StateMachineType StateMachine[] =
   {STATE_TARE_ALL, Sm_State_Tare_All},
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
   {STATE_WAIT, Sm_State_Wait},
+  {STATE_CALIBRATE, Sm_State_Calibrate},
 };
  
-int NUM_STATES = 9;
+int NUM_STATES = 10;
 
 /**
  * Stores the current state of the state machine
  */
  
-StateType SmState = STATE_READ;    //START IN THE READ STATE
+StateType SmState = STATE_GAUGE_RESET;    //START IN THE READ STATE
 
 //DEFINE STATE MACHINE FUNCTIONS================================================================
 
@@ -190,7 +194,6 @@ void Sm_State_Standby(void){
 // State Read reads the next gauge and stores the data for reporting.
 // Remains in read state until user makes the change.
 void Sm_State_Read(void){
-  Serial.print("READ");
 
   lowerLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
   
@@ -201,7 +204,7 @@ void Sm_State_Read(void){
       //if(gaugeScales[i].wait_ready_timeout(100)){
       if(gauges[read_index].is_ready()){
         
-        data[read_index] = gauges[read_index].get_units(5);       //what is the best number of readings to take?
+        data[read_index] = gauges[read_index].get_units(10);       //what is the best number of readings to take?
         
       } 
 
@@ -343,6 +346,16 @@ void Sm_State_Wait(void){
   
 }
 
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WAIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//TRANSITION: STATE_WAIT -> STATE_READ
+void Sm_State_Calibrate(void){
+
+  calibrate();    //just calibrates gauge 0
+
+  SmState = STATE_READ;
+  
+}
+
 //STATE MACHINE RUN FUNCTION
 void Sm_Run(void)
 {
@@ -372,9 +385,9 @@ void setup() {
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
   while(!Serial);
+  Serial.println("SETUP");
 
-
-  resetGauges();
+  //resetGauges();
 
 }
 
@@ -451,6 +464,11 @@ StateType readSerialJSON(StateType SmState){
         {
           SmState = STATE_GAUGE_RESET;
           reportState(STATE_GAUGE_RESET);//necessary?
+        }
+        else if(strcmp(new_mode, "calibrate") == 0)
+        {
+          SmState = STATE_CALIBRATE;
+          reportState(STATE_CALIBRATE);//necessary?
         }
         
     }  
@@ -548,5 +566,15 @@ void resetGauges(){
 
   
   tareAll();
+
+}
+
+void calibrate(){
+  
+ 
+  gauges[0].set_scale();
+  gauges[0].tare();
+
+  
 
 }
