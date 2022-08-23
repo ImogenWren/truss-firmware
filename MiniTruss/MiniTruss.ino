@@ -37,7 +37,6 @@ unsigned long step_interval = 100L;     //at 5V takes approx. 100ms to move 1 po
 unsigned long enter_move_time = millis();    //the time at which the move state started
 
 //LIMIT SWITCHES
-bool limitSwitchesAttached = false;
 #define limitSwitchLower 11
 bool lowerLimitReached = false;
 int soft_lower_limit = 15;        //need to have a soft limit which the servo returns to if it hits the hard limit switch
@@ -119,6 +118,7 @@ typedef enum
   STATE_GAUGE_RESET = 7,    //resets all gauges
   STATE_WAIT = 8,    //a wait state to although functions like taring to complete before returning to READ state.
   STATE_CALIBRATE = 9,
+  STATE_HARD_LIMIT = 10,
   
 } StateType;
 
@@ -134,6 +134,7 @@ void Sm_State_Tare_All(void);
 void Sm_State_Gauge_Reset(void);
 void Sm_State_Wait(void);
 void Sm_State_Calibrate(void);
+void Sm_State_Hard_Limit(void);
 
 /**
  * Type definition used to define the state
@@ -161,32 +162,24 @@ StateMachineType StateMachine[] =
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
   {STATE_WAIT, Sm_State_Wait},
   {STATE_CALIBRATE, Sm_State_Calibrate},
+  {STATE_HARD_LIMIT, Sm_State_Hard_Limit},
 };
  
-int NUM_STATES = 10;
+int NUM_STATES = 11;
 
 /**
  * Stores the current state of the state machine
  */
  
-StateType SmState = STATE_GAUGE_RESET;    //START IN THE READ STATE
+StateType SmState = STATE_GAUGE_RESET;    //START IN THE GAUGE RESET STATE, which initialises the gauges
 
 //DEFINE STATE MACHINE FUNCTIONS================================================================
 
 //TRANSITION: STATE_STANDBY -> STATE_STANDBY
 void Sm_State_Standby(void){
 
-  //is there a need to detach these interrupts? Best to just attach and keep attached?
-  if(limitSwitchesAttached)
-  {
-    detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
-    //detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
-
-    limitSwitchesAttached = false;
-  }
-
-  
   SmState = STATE_STANDBY;
+  
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ READ ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -194,9 +187,6 @@ void Sm_State_Standby(void){
 // State Read reads the next gauge and stores the data for reporting.
 // Remains in read state until user makes the change.
 void Sm_State_Read(void){
-
-  lowerLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
-  
 
   if(millis() - previousTime >= timeInterval){
   
@@ -227,19 +217,11 @@ void Sm_State_Read(void){
 //Remains in move state for an appropriate time to complete the move. There is no feedback on position from servo so need to base on time.
 //This blocks gauge reading, but high servo speed and slow update of gauges should make this fine.
 void Sm_State_Move(void){
-  
-  if(!limitSwitchesAttached)
-  {
-    attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
-    limitSwitchesAttached = true;
-  }
 
-  if(lowerLimitReached)
+  // can only run servo in move state if the lower limit has not been activated
+  if(!lowerLimitReached)
   {
-    lowerLimitReached = false;
-  }
-  
-  currentPos = servo.update();
+    currentPos = servo.update();
    
    if(millis() - enter_move_time >= move_interval){
     
@@ -252,6 +234,13 @@ void Sm_State_Move(void){
       SmState = STATE_MOVE;
     
    }
+  } 
+  else 
+  {
+    
+    SmState = STATE_READ;
+    
+  }
   
 }
 
@@ -259,13 +248,6 @@ void Sm_State_Move(void){
 //TRANSITION: STATE_ZERO -> STATE_READ
 //
 void Sm_State_Zero(void){
-
-  if(!limitSwitchesAttached)
-  {
-    attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
-
-    limitSwitchesAttached = true;
-  }
   
   servo.zero();
 
@@ -346,13 +328,30 @@ void Sm_State_Wait(void){
   
 }
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WAIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ CALIBRATE ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_WAIT -> STATE_READ
 void Sm_State_Calibrate(void){
 
-  calibrate();    //just calibrates gauge 0
+  calibrate();
 
-  SmState = STATE_READ;
+  waitStartTime = millis();
+  waitInterval = 3000;
+
+  SmState = STATE_WAIT;
+  
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ HARD LIMIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//TRANSITION: STATE_HARD_LIMIT -> STATE_HARD_LIMIT
+// When the hard limit switch is hit, servo will move back to the soft limit and stay in this mode until a user resets or moves the servo again, changing the state.
+// The UI will need to respond to receiving the hard limit state in order to make users aware of the need to reset.
+void Sm_State_Hard_Limit(void){
+
+  moveToPos = soft_lower_limit;
+  servo.updateMoveTo(moveToPos);
+  currentPos = servo.update();
+   
+  SmState = STATE_HARD_LIMIT;
   
 }
 
@@ -376,6 +375,8 @@ void Sm_Run(void)
 void setup() {
 
   pinMode(limitSwitchLower, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);    // lower limit hardware switch will trigger method doLimitLower on press
+  attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitCleared, RISING);    // lower limit hardware switch will trigger method doLimitCleared when unpressed
 
   pinMode(OUTPUT_ENABLE, OUTPUT);
   digitalWrite(OUTPUT_ENABLE, HIGH);
@@ -385,15 +386,25 @@ void setup() {
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
   while(!Serial);
-  Serial.println("SETUP");
 
-  //resetGauges();
+  //resetGauges();    //starts in gauge reset state rather than running here.
 
 }
 
 void loop() {
   
-  Sm_Run();
+  if(lowerLimitReached){
+
+    SmState = STATE_HARD_LIMIT;
+    (*StateMachine[SmState].func)();
+    
+  } 
+  else 
+  {
+    
+    Sm_Run();
+    
+  }
 
 }
 
@@ -480,15 +491,15 @@ StateType readSerialJSON(StateType SmState){
  //On an interrupt - will interrupt all state functions
 //TRANSITION: -> READ
 void doLimitLower(void){
-  if(!lowerLimitReached)
-  {
-    
-    moveToPos = soft_lower_limit;
-    servo.updateMoveTo(moveToPos);
-    move_interval = abs(moveToPos - currentPos)*step_interval;
-          
-    SmState = STATE_MOVE; 
-  }
+
+    reportState();
+    lowerLimitReached = true;
+}
+
+void doLimitCleared(void){
+
+    reportState();
+    lowerLimitReached = false;
 }
 
 void report(){
@@ -511,7 +522,6 @@ void report(){
  
 }
 
-//DO I NEED this function when state is being reported in report()?
 void reportState(int state){
   Serial.print("{\"state\":");
   Serial.print(state);
@@ -570,11 +580,10 @@ void resetGauges(){
 }
 
 void calibrate(){
-  
- 
-  gauges[0].set_scale();
-  gauges[0].tare();
 
-  
+  for(int i=0;i<numGauges;i++){
+    gauges[i].set_scale();
+    gauges[i].tare();
+   }
 
 }
