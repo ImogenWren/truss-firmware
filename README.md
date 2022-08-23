@@ -15,6 +15,8 @@ Truss remote lab hardware documents and PCB schematics are available here (link 
 
 The mini-truss remote lab firmware uses a state machine with 11 states for reading, writing, loading, taring and resetting both strain gauges and load cell. A single microcontroller (Arduino Nano 33 IoT) performs both reading and writing of data. The state machine will remain in the READ state until a user command to change state. Upon performing that state the state machine will return to READ.
 
+Ensure that this firmware corresponds with the correct Arduino pins according to the PCB - ie the load cell is pin 9, but is gauge_0 in the firmware, followed by each member on gauge_1 to gauge_6, using pins 3 - 8.
+
 ![mini-truss-schematic](images/mini-truss-schematic.png)
 
 ![mini-truss-servo](images/linear_actuator.jpg)
