@@ -116,7 +116,7 @@ typedef enum
   STATE_TARE_LOAD = 5,      //tares the load force gauge
   STATE_TARE_ALL = 6,      //tares both the gauges and load cell
   STATE_GAUGE_RESET = 7,    //resets all gauges
-  STATE_WAIT = 8,    //a wait state to although functions like taring to complete before returning to READ state.
+  STATE_WAIT = 8,    //a wait state to allow functions like taring to complete before returning to READ state.
   STATE_CALIBRATE = 9,
   STATE_HARD_LIMIT = 10,
   

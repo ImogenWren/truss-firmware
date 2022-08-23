@@ -1,14 +1,18 @@
 # truss-firmware
 
-Firmware for controlling and reading a 6 member truss. Each member has a full bridge strain gauge arrangement. Strain gauge voltages are converted to digital signals using the HX711 ADC. The truss is loaded using a servo controlled by the firmware.
+Arduino Nano 33 IoT firmware for controlling and reading a 6 member truss remote laboratory for use with Structural Engineering and Engineering Design courses at the University of Edinburgh, 2022-23. 
+
+![mini-truss](images/mini-truss.jpg)
+
+Each truss member has a full-bridge strain gauge arrangement using two biaxial strain gauges (Kyowa KFGS-2-120-D16-11 - link to docs). Strain gauge voltages are converted to digital signals using the HX711 ADC (add link to docs) and a [HX711 library](https://www.arduino.cc/reference/en/libraries/hx711-arduino-library/).  The truss is loaded using a linear servo (add link to docs) controlled by the firmware.
 
 Truss remote lab UI available [here](https://github.com/dpreid/truss-ui)
+Truss remote lab hardware documents and PCB schematics are available here (link to be updated).
 
 # mini-truss remote lab (in development)
 
-The mini-truss remote lab firmware uses a state machine with 8 states for reading, writing, loading, taring and resetting both strain gauges and load cell. A single microcontroller performs both reading and writing of data. 
+The mini-truss remote lab firmware uses a state machine with 11 states for reading, writing, loading, taring and resetting both strain gauges and load cell. A single microcontroller (Arduino Nano 33 IoT) performs both reading and writing of data. The state machine will remain in the READ state until a user command to change state. Upon performing that state the state machine will return to READ.
 
-![mini-truss](images/mini-truss.jpg)
 ![mini-truss-schematic](images/mini-truss-schematic.png)
 
 ![mini-truss-servo](images/linear_actuator.jpg)
