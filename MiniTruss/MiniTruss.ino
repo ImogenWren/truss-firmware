@@ -13,6 +13,10 @@
 // 08/06/22
 // dprydereid@gmail.com
 
+// Add a hardware limit switch state and updated load cell pin
+// 23/08/22
+// dprydereid@gmail.com
+
 // IMPORT LIBRARIES
 #include "HX711.h"
 #include "LinearServo.h"
@@ -42,19 +46,19 @@ bool lowerLimitReached = false;
 int soft_lower_limit = 15;        //need to have a soft limit which the servo returns to if it hits the hard limit switch
 
 //GAUGE READINGS
-const int numGauges = 7;
+const int numGauges = 7;    //6 gauges + load cell
 float data[numGauges] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 
 //GAUGE SETUP
 const int SCK_PIN = 2;  //Common CLOCK pin
-const int GAUGE_0_DT = 3; //DATA pins
-const int GAUGE_1_DT = 4;
-const int GAUGE_2_DT = 5;
-const int GAUGE_3_DT = 6;
-const int GAUGE_4_DT = 7;
-const int GAUGE_5_DT = 8;
-const int GAUGE_6_DT = 9;
+const int GAUGE_0_DT = 9; //DATA pins, //LOAD CELL
+const int GAUGE_1_DT = 3; //TRUSS MEMBER 1
+const int GAUGE_2_DT = 4; //TRUSS MEMBER 2
+const int GAUGE_3_DT = 5; //TRUSS MEMBER 3
+const int GAUGE_4_DT = 6; //TRUSS MEMBER 4
+const int GAUGE_5_DT = 7; //TRUSS MEMBER 5
+const int GAUGE_6_DT = 8; //TRUSS MEMBER 6 
 
 int read_index = 0;   //holds a flag for which gauge to read on next loop of state machine.
 
@@ -566,7 +570,7 @@ void resetGauges(){
   initialiseGauges();
   setGain(128);
  
-  gauges[0].set_scale(scale_load);   //calibrated with the load cell on the real truss -> OUTPUTS force in newtons
+  gauges[0].set_scale(scale_load);   //OUTPUTS force in newtons
   gauges[1].set_scale(scale_factor_1);          //member 1, calibrated with truss member 1  -> outputs strain in micro-strain
   gauges[2].set_scale(scale_factor_2);          //member 2
   gauges[3].set_scale(scale_factor_3);          //member 3
