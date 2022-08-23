@@ -17,7 +17,8 @@ The mini-truss remote lab firmware uses a state machine with 11 states for readi
 
 Ensure that this firmware corresponds with the correct Arduino pins according to the PCB - ie the load cell is pin 9, but is gauge_0 in the firmware, followed by each member on gauge_1 to gauge_6, using pins 3 - 8.
 
-![mini-truss-schematic](images/mini-truss-schematic.png)
+![mini-truss-schematic](images/imogen-pcb.png)
+![mini-truss-schematic-mcu](images/imogen-pcb-mcu.png)
 
 ![mini-truss-servo](images/linear_actuator.jpg)
 
