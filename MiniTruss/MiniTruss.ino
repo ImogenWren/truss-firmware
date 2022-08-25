@@ -496,13 +496,13 @@ StateType readSerialJSON(StateType SmState){
 //TRANSITION: -> READ
 void doLimitLower(void){
 
-    reportState();
+    reportState(STATE_HARD_LIMIT);
     lowerLimitReached = true;
 }
 
 void doLimitCleared(void){
 
-    reportState();
+    //reportState(STATE_HARD_LIMIT);
     lowerLimitReached = false;
 }
 
