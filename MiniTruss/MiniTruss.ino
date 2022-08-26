@@ -83,13 +83,13 @@ HX711 gauge_6;
 //const int scale_factor_6 = scale_factor_1*0.924;
 
 //still testing these factors
-const int scale_load = 53.12;
-const int scale_factor_1 = 53.12;
-const int scale_factor_2 = scale_factor_1;
-const int scale_factor_3 = scale_factor_1;
-const int scale_factor_4 = scale_factor_1;
-const int scale_factor_5 = scale_factor_1;
-const int scale_factor_6 = scale_factor_1;
+const int scale_load = -371.8;
+const int scale_factor_1 = 27.5;
+const int scale_factor_2 = 53.1;
+const int scale_factor_3 = 22.4;
+const int scale_factor_4 = 80.7;
+const int scale_factor_5 = 30.1;
+const int scale_factor_6 = 26.1;
 
 
 HX711 gauges[numGauges] = {gauge_0, gauge_1, gauge_2, gauge_3, gauge_4, gauge_5, gauge_6};
@@ -379,8 +379,8 @@ void Sm_Run(void)
 void setup() {
 
   pinMode(limitSwitchLower, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);    // lower limit hardware switch will trigger method doLimitLower on press
-  attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitCleared, RISING);    // lower limit hardware switch will trigger method doLimitCleared when unpressed
+  //attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);    // lower limit hardware switch will trigger method doLimitLower on press
+  //attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitCleared, RISING);    // lower limit hardware switch will trigger method doLimitCleared when unpressed
 
   pinMode(OUTPUT_ENABLE, OUTPUT);
   digitalWrite(OUTPUT_ENABLE, HIGH);
@@ -587,7 +587,8 @@ void calibrate(){
 
   for(int i=0;i<numGauges;i++){
     gauges[i].set_scale();
-    gauges[i].tare();
    }
+
+   tareAll();
 
 }
