@@ -1,5 +1,7 @@
 # truss-firmware
 
+30/08/22 DEVELOPMENT of this repo has now moved to [practable](https://github.com/practable/truss)
+
 UNDER ACTIVE DEVELOPMENT - no guarantees that there are no issues currently.
 
 Arduino Nano 33 IoT firmware for controlling and reading a 6 member truss remote laboratory for use with Structural Engineering and Engineering Design courses at the University of Edinburgh, 2022-23. 

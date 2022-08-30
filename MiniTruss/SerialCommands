@@ -1,7 +1,5 @@
 {"set": "position", "to": value} 
 
-{"set": "speed", "to": value} //not implemented.
-
 {"set": "mode", "to": "read"} 
 
 {"set": "mode", "to": "move"} 
@@ -10,7 +8,11 @@
 
 {"set": "mode", "to":"zero"}
 
+{"set": "mode", "to":"tare"} 
+
 {"set": "mode", "to":"tare_all"} 
+
+{"set": "mode", "to":"tare_load"} 
 
 {"set": "mode", "to":"gauge_reset"} 
 
