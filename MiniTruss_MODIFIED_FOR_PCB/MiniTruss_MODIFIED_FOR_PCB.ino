@@ -18,8 +18,20 @@
 #include "LinearServo.h"
 #include "ArduinoJson-v6.9.1.h"
 
+// Imogen's Additions
+// Set Output Enable pin for logic level shifters
+
+#define OUTPUT_ENABLE A1   // Must be set high if using Logic Level Shifters
+//Additional LED Outputs
+#define LED_ONE       13
+#define LED_NINE      A5
+#define LED_TEN       A6
+#define LED_ELEVEN    A7
+
 
 #define OUTPUT_ENABLE A1
+
+int iteration = 0;
 
 //JSON serialization
 #define COMMAND_SIZE 64  //originally 64
@@ -101,9 +113,9 @@ unsigned long waitInterval = 2000;    //this changes depending on what is being 
 unsigned long waitStartTime = 0;
 
 /**
- * Defines the valid states for the state machine
- * 
- */
+   Defines the valid states for the state machine
+
+*/
 typedef enum
 {
   STATE_STANDBY = 0,        //no drive to motor, no reading of gauges
@@ -115,7 +127,7 @@ typedef enum
   STATE_TARE_ALL = 6,      //tares both the gauges and load cell
   STATE_GAUGE_RESET = 7,    //resets all gauges
   STATE_WAIT = 8,    //a wait state to although functions like taring to complete before returning to READ state.
-  
+
 } StateType;
 
 //state Machine function prototypes
@@ -131,9 +143,9 @@ void Sm_State_Gauge_Reset(void);
 void Sm_State_Wait(void);
 
 /**
- * Type definition used to define the state
- */
- 
+   Type definition used to define the state
+*/
+
 typedef struct
 {
   StateType State; /**< Defines the command */
@@ -141,9 +153,9 @@ typedef struct
 } StateMachineType;
 
 /**
- * A table that defines the valid states of the state machine and
- * the function that should be executed for each state
- */
+   A table that defines the valid states of the state machine and
+   the function that should be executed for each state
+*/
 StateMachineType StateMachine[] =
 {
   {STATE_STANDBY, Sm_State_Standby},
@@ -156,22 +168,22 @@ StateMachineType StateMachine[] =
   {STATE_GAUGE_RESET, Sm_State_Gauge_Reset},
   {STATE_WAIT, Sm_State_Wait},
 };
- 
+
 int NUM_STATES = 9;
 
 /**
- * Stores the current state of the state machine
- */
- 
+   Stores the current state of the state machine
+*/
+
 StateType SmState = STATE_READ;    //START IN THE READ STATE
 
 //DEFINE STATE MACHINE FUNCTIONS================================================================
 
 //TRANSITION: STATE_STANDBY -> STATE_STANDBY
-void Sm_State_Standby(void){
+void Sm_State_Standby(void) {
 
   //is there a need to detach these interrupts? Best to just attach and keep attached?
-  if(limitSwitchesAttached)
+  if (limitSwitchesAttached)
   {
     detachInterrupt(digitalPinToInterrupt(limitSwitchLower));
     //detachInterrupt(digitalPinToInterrupt(limitSwitchUpper));
@@ -179,7 +191,7 @@ void Sm_State_Standby(void){
     limitSwitchesAttached = false;
   }
 
-  
+
   SmState = STATE_STANDBY;
 }
 
@@ -187,32 +199,32 @@ void Sm_State_Standby(void){
 //TRANSITION: STATE_READ -> STATE_READ
 // State Read reads the next gauge and stores the data for reporting.
 // Remains in read state until user makes the change.
-void Sm_State_Read(void){
+void Sm_State_Read(void) {
 
   lowerLimitReached = false;    //if in read state then clear the limit flags.    =====NEW
-  
 
-  if(millis() - previousTime >= timeInterval){
-  
-   //for(int i=0; i< numGauges; i++){
-      //if(gaugeScales[i].wait_ready_timeout(100)){
-      if(gauges[read_index].is_ready()){
-        
-        data[read_index] = gauges[read_index].get_units(5);       //what is the best number of readings to take?
-        
-      } 
 
-      //delay(10);    //necessary?
-   //}
+  if (millis() - previousTime >= timeInterval) {
+
+    //for(int i=0; i< numGauges; i++){
+    //if(gaugeScales[i].wait_ready_timeout(100)){
+    if (gauges[read_index].is_ready()) {
+
+      data[read_index] = gauges[read_index].get_units(5);       //what is the best number of readings to take?
+
+    }
+
+    //delay(10);    //necessary?
+    //}
 
     read_index = (read_index + 1) % numGauges;    //move to next read_index and loop back to 0 after numGauges reached
     report();
     previousTime = millis();
-    
+
   }
-  
-   SmState = STATE_READ;
-  
+
+  SmState = STATE_READ;
+
 }
 
 
@@ -220,124 +232,124 @@ void Sm_State_Read(void){
 //TRANSITION: STATE_MOVE -> STATE_READ
 //Remains in move state for an appropriate time to complete the move. There is no feedback on position from servo so need to base on time.
 //This blocks gauge reading, but high servo speed and slow update of gauges should make this fine.
-void Sm_State_Move(void){
-  
-  if(!limitSwitchesAttached)
+void Sm_State_Move(void) {
+
+  if (!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
     limitSwitchesAttached = true;
   }
 
-  if(lowerLimitReached)
+  if (lowerLimitReached)
   {
     lowerLimitReached = false;
   }
-  
+
   currentPos = servo.update();
-   
-   if(millis() - enter_move_time >= move_interval){
-    
-      SmState = STATE_READ;
-    
-   } 
-   else
-   {
-    
-      SmState = STATE_MOVE;
-    
-   }
-  
+
+  if (millis() - enter_move_time >= move_interval) {
+
+    SmState = STATE_READ;
+
+  }
+  else
+  {
+
+    SmState = STATE_MOVE;
+
+  }
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ZERO ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_ZERO -> STATE_READ
 //
-void Sm_State_Zero(void){
+void Sm_State_Zero(void) {
 
-  if(!limitSwitchesAttached)
+  if (!limitSwitchesAttached)
   {
     attachInterrupt(digitalPinToInterrupt(limitSwitchLower), doLimitLower, FALLING);
 
     limitSwitchesAttached = true;
   }
-  
+
   servo.zero();
 
   currentPos = 0;
-  
+
   waitStartTime = millis();
   waitInterval = 3000;
 
   SmState = STATE_WAIT;
- 
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE GAUGES++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_GAUGES -> STATE_WAIT
-void Sm_State_Tare_Gauges(void){
-  
+void Sm_State_Tare_Gauges(void) {
+
   tareGauges();
 
   waitStartTime = millis();
   waitInterval = 2000;
 
   SmState = STATE_WAIT;
-  
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE LOAD ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_LOAD -> STATE_WAIT
-void Sm_State_Tare_Load(void){
-  
+void Sm_State_Tare_Load(void) {
+
   tareLoad();
 
   waitStartTime = millis();
   waitInterval = 1000;
-  
+
   SmState = STATE_WAIT;
-  
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ TARE ALL ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_TARE_ALL -> STATE_WAIT
-void Sm_State_Tare_All(void){
-  
+void Sm_State_Tare_All(void) {
+
   tareAll();
 
   waitStartTime = millis();
   waitInterval = 2000;
-  
+
   SmState = STATE_WAIT;
-  
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ GAUGE RESET ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_GAUGE_RESET -> STATE_READ
-void Sm_State_Gauge_Reset(void){
+void Sm_State_Gauge_Reset(void) {
 
   resetGauges();
 
   waitStartTime = millis();
   waitInterval = 3000;
-  
+
   SmState = STATE_WAIT;
-  
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ WAIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //TRANSITION: STATE_WAIT -> STATE_READ
-void Sm_State_Wait(void){
+void Sm_State_Wait(void) {
 
-  if(millis() - waitStartTime < waitInterval){
+  if (millis() - waitStartTime < waitInterval) {
 
-      SmState = STATE_WAIT;
-    
+    SmState = STATE_WAIT;
+
   } else {
 
-      SmState = STATE_READ;
-    
+    SmState = STATE_READ;
+
   }
-  
+
 }
 
 //STATE MACHINE RUN FUNCTION
@@ -345,14 +357,14 @@ void Sm_Run(void)
 {
   if (SmState < NUM_STATES)
   {
-    SmState = readSerialJSON(SmState);      
+    SmState = readSerialJSON(SmState);
     (*StateMachine[SmState].func)();        //reads the current state and then runs the associated function
-    
+
   }
-  else{
+  else {
     Serial.println("Exception in State Machine");
   }
-  
+
 }
 
 
@@ -362,13 +374,14 @@ void setup() {
   pinMode(limitSwitchLower, INPUT_PULLUP);
   pinMode(OUTPUT_ENABLE, OUTPUT);
   digitalWrite(OUTPUT_ENABLE, HIGH);
- 
+  led_setup();
+  led_poweron();
 
   previousTime = millis();
 
   //Serial communication for sending data -> RPi -> Server
   Serial.begin(57600);
-  while(!Serial);
+  while (!Serial);
 
 
   resetGauges();
@@ -382,99 +395,99 @@ void loop() {
 }
 
 
-StateType readSerialJSON(StateType SmState){
-  if(Serial.available() > 0)
+StateType readSerialJSON(StateType SmState) {
+  if (Serial.available() > 0)
   {
 
     Serial.readBytesUntil(10, command, COMMAND_SIZE);
     deserializeJson(doc, command);
-    
+
     const char* set = doc["set"];
 
-    if(strcmp(set, "position")==0)
+    if (strcmp(set, "position") == 0)
     {
-  
-        float new_position = doc["to"];
-        
-        if(new_position >= 0 && new_position <= max_position)
-        {
-          moveToPos = new_position;
-          servo.updateMoveTo(moveToPos);
-          move_interval = abs(moveToPos - currentPos)*step_interval;
-        } 
-        else
-        {
-          Serial.println("Outside position range");
-        }
-     
-  } 
-    else if(strcmp(set, "mode")==0)
+
+      float new_position = doc["to"];
+
+      if (new_position >= 0 && new_position <= max_position)
+      {
+        moveToPos = new_position;
+        servo.updateMoveTo(moveToPos);
+        move_interval = abs(moveToPos - currentPos) * step_interval;
+      }
+      else
+      {
+        Serial.println("Outside position range");
+      }
+
+    }
+    else if (strcmp(set, "mode") == 0)
     {
-      
+
       const char* new_mode = doc["to"];
 
-        if(strcmp(new_mode, "standby") == 0)
-        {
-          SmState = STATE_STANDBY;
-          reportState(STATE_STANDBY);//necessary?
-        } 
-        else if(strcmp(new_mode, "move") == 0)
-        {
-          SmState = STATE_MOVE;
-          enter_move_time = millis();
-          reportState(STATE_MOVE);//necessary?
-        }
-        else if(strcmp(new_mode, "zero") == 0)
-        {
-          SmState = STATE_ZERO;
-          reportState(STATE_ZERO);//necessary?
-        }
-        else if(strcmp(new_mode, "tare") == 0)
-        {
-          SmState = STATE_TARE_GAUGES;
-          reportState(STATE_TARE_GAUGES);//necessary?
-        }
-        else if(strcmp(new_mode, "tare_load") == 0)
-        {
-          SmState = STATE_TARE_LOAD;
-          reportState(STATE_TARE_LOAD);   //necessary?
-        }
-        else if(strcmp(new_mode, "tare_all") == 0)
-        {
-          SmState = STATE_TARE_ALL;
-          reportState(STATE_TARE_ALL);   //necessary?
-        }
-        else if(strcmp(new_mode, "gauge_reset") == 0)
-        {
-          SmState = STATE_GAUGE_RESET;
-          reportState(STATE_GAUGE_RESET);//necessary?
-        }
-        
-    }  
-    
-  }
-      return SmState;     //return whatever state it changed to or maintain the state.
- } 
+      if (strcmp(new_mode, "standby") == 0)
+      {
+        SmState = STATE_STANDBY;
+        reportState(STATE_STANDBY);//necessary?
+      }
+      else if (strcmp(new_mode, "move") == 0)
+      {
+        SmState = STATE_MOVE;
+        enter_move_time = millis();
+        reportState(STATE_MOVE);//necessary?
+      }
+      else if (strcmp(new_mode, "zero") == 0)
+      {
+        SmState = STATE_ZERO;
+        reportState(STATE_ZERO);//necessary?
+      }
+      else if (strcmp(new_mode, "tare") == 0)
+      {
+        SmState = STATE_TARE_GAUGES;
+        reportState(STATE_TARE_GAUGES);//necessary?
+      }
+      else if (strcmp(new_mode, "tare_load") == 0)
+      {
+        SmState = STATE_TARE_LOAD;
+        reportState(STATE_TARE_LOAD);   //necessary?
+      }
+      else if (strcmp(new_mode, "tare_all") == 0)
+      {
+        SmState = STATE_TARE_ALL;
+        reportState(STATE_TARE_ALL);   //necessary?
+      }
+      else if (strcmp(new_mode, "gauge_reset") == 0)
+      {
+        SmState = STATE_GAUGE_RESET;
+        reportState(STATE_GAUGE_RESET);//necessary?
+      }
 
- //On an interrupt - will interrupt all state functions
+    }
+
+  }
+  return SmState;     //return whatever state it changed to or maintain the state.
+}
+
+//On an interrupt - will interrupt all state functions
 //TRANSITION: -> READ
-void doLimitLower(void){
-  if(!lowerLimitReached)
+void doLimitLower(void) {
+  if (!lowerLimitReached)
   {
-    
+
     moveToPos = soft_lower_limit;
     servo.updateMoveTo(moveToPos);
-    move_interval = abs(moveToPos - currentPos)*step_interval;
-          
-    SmState = STATE_MOVE; 
+    move_interval = abs(moveToPos - currentPos) * step_interval;
+
+    SmState = STATE_MOVE;
   }
 }
 
-void report(){
+void report() {
   Serial.print("{\"load_cell\":");
   Serial.print(data[0]);
-  
-  for(int i=1;i<numGauges;i++){
+
+  for (int i = 1; i < numGauges; i++) {
     Serial.print(",\"gauge_");
     Serial.print(i);
     Serial.print("\":");
@@ -485,56 +498,58 @@ void report(){
   Serial.print(SmState);
   Serial.print(",\"pos\":");
   Serial.print(currentPos);
+
+  Serial.print("}  ");
+  Serial.print("Iteration: ");
   
-  Serial.println("}");
- 
+
 }
 
 //DO I NEED this function when state is being reported in report()?
-void reportState(int state){
+void reportState(int state) {
   Serial.print("{\"state\":");
   Serial.print(state);
   Serial.println("}");
 }
 
-void initialiseGauges(){
-  for(int i=0;i<numGauges;i++){
+void initialiseGauges() {
+  for (int i = 0; i < numGauges; i++) {
     gauges[i].begin(pins[i], SCK_PIN);
   }
 }
 
-void setGain(int gain){
-  for(int i=0;i<numGauges;i++){
+void setGain(int gain) {
+  for (int i = 0; i < numGauges; i++) {
     gauges[i].set_gain(gain);
   }
 }
 
 //Just tares the load cell
-void tareLoad(){
+void tareLoad() {
   data[0] = 0.0;
   gauges[0].tare();
 }
 
 //tares all gauge scales, but not load cell
-void tareGauges(){
-  for(int i=1;i<numGauges;i++){
+void tareGauges() {
+  for (int i = 1; i < numGauges; i++) {
     data[i] = 0.0;       //set the stored data value to 0
     gauges[i].tare();
-   }
+  }
 }
 
 //tares all gauges, including load cell
-void tareAll(){
-  for(int i=0;i<numGauges;i++){
+void tareAll() {
+  for (int i = 0; i < numGauges; i++) {
     data[i] = 0.0;       //set the stored data value to 0
     gauges[i].tare();
-   }
+  }
 }
 
-void resetGauges(){
+void resetGauges() {
   initialiseGauges();
   setGain(128);
- 
+
   gauges[0].set_scale(scale_load);   //calibrated with the load cell on the real truss -> OUTPUTS force in newtons
   gauges[1].set_scale(scale_factor_1);          //member 1, calibrated with truss member 1  -> outputs strain in micro-strain
   gauges[2].set_scale(scale_factor_2);          //member 2
@@ -543,7 +558,38 @@ void resetGauges(){
   gauges[5].set_scale(scale_factor_5);          //member 5
   gauges[6].set_scale(scale_factor_6);          //member 6
 
-  
+
   tareAll();
 
+}
+
+
+
+
+#define LED_BLUE LED_ONE
+#define LED_GREEN LED_ELEVEN
+#define LED_YELLOW LED_TEN
+#define LED_RED LED_NINE
+
+
+
+char led_array[4] = {LED_BLUE, LED_GREEN, LED_YELLOW, LED_RED};
+
+void led_setup() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(led_array[i], OUTPUT);
+  }
+}
+
+void led_poweron() {
+  for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(led_array[i], HIGH);
+      delay(70);
+    }
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(led_array[i], LOW);
+      delay(70);
+    }
+  }
 }
